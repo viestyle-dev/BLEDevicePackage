@@ -37,11 +37,11 @@ fileprivate enum DeviceUUID: String {
 }
 
 
-open class BLEDevice: NSObject {
+public class BLEDevice: NSObject {
     
-    static var shared = BLEDevice()
+    public static var shared = BLEDevice()
     
-    var delegate: BLEDelegate?
+    public var delegate: BLEDelegate?
     
     private var centralManager: CBCentralManager!
     
@@ -77,7 +77,7 @@ open class BLEDevice: NSObject {
     }
     
     /// スキャン開始
-    func scanDevice() {
+    public func scanDevice() {
         let services = [
             DeviceUUID.deviceInfoService.uuid,
             DeviceUUID.batteryService.uuid,
@@ -87,12 +87,12 @@ open class BLEDevice: NSObject {
     }
     
     /// スキャン停止
-    func stopScanDevice() {
+    public func stopScanDevice() {
         centralManager.stopScan()
     }
     
     /// 接続
-    func connect(_ deviceID: String) {
+    public func connect(_ deviceID: String) {
         guard let lastUUID = UUID(uuidString: deviceID),
               let peripheral = centralManager.retrievePeripherals(withIdentifiers: [lastUUID]).first  else {
             return
