@@ -37,7 +37,7 @@ fileprivate enum DeviceUUID: String {
 }
 
 
-class BLEDevice: NSObject {
+open class BLEDevice: NSObject {
     
     static var shared = BLEDevice()
     
