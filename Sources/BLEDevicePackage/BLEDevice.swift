@@ -1,12 +1,14 @@
 //
 //  BLEDevice.swift
-//  CoreBluetoothStudy
+//  BLEDevicePackage
 //
 //  Created by mio kato on 2022/04/11.
 //
 
 import Foundation
 import CoreBluetooth
+
+#if os(iOS)
 
 /// BLEDevice UUID
 fileprivate enum DeviceUUID: String {
@@ -175,11 +177,6 @@ extension BLEDevice: CBCentralManagerDelegate {
         delegate?.centralManager?(central, didFailToConnect: peripheral, error: error)
     }
     
-    /// ペリフェラルとの接続イベントが発火した
-    internal func centralManager(_ central: CBCentralManager, connectionEventDidOccur event: CBConnectionEvent, for peripheral: CBPeripheral) {
-        delegate?.centralManager?(central, connectionEventDidOccur: event, for: peripheral)
-    }
-    
     /// 状態が変化した
     internal func centralManagerDidUpdateState(_ central: CBCentralManager) {
         delegate?.centralManagerDidUpdateState?(central)
@@ -284,7 +281,7 @@ extension BLEDevice: CBPeripheralDelegate {
         
         // 600fpsで脳波を送信 (30fps x 20data)
         for (leftValue, rightValue) in zip(leftValues, rightValues) {
-            self.delegate?.eegSampleLeft(left: Int(leftValue), right: Int(rightValue))
+            self.delegate?.eegSampleLeft(Int32(leftValue), right: Int32(rightValue))
         }
     }
     
@@ -303,12 +300,12 @@ extension BLEDevice: CBPeripheralDelegate {
             return
         }
         let batteryPercent = data.encodedUInt8[0]
-        delegate?.battery(percent: Int(batteryPercent))
+        delegate?.battery(Int32(batteryPercent))
     }
     
     /// 脳波デバイスの装着ステータスを更新 [0 : ok, 1 : left-x, 2 : right-x, 3 : both-x]
     private func handleSensorStatus(status: Int) {
-        delegate?.sensorStatus(status: Int(status))
+        delegate?.sensorStatus(Int32(status))
     }
     
     /// EEG取得開始、停止時のハンドリング
@@ -332,3 +329,5 @@ fileprivate extension Data {
         }
     }
 }
+
+#endif
