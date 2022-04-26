@@ -108,7 +108,7 @@ public class BLEDevice: NSObject {
     }
     
     /// 接続を解除
-    func disconnectDevice() {
+    public func disconnectDevice() {
         guard let peripheral = connectedPeripheral else {
             return
         }
@@ -127,7 +127,7 @@ public class BLEDevice: NSObject {
     }
     
     /// 脳波の検出を開始
-    func start() {
+    public func start() {
         guard let peripheral = connectedPeripheral,
               let modeCharacteristic = modeCharacteristic else {
             return
@@ -137,7 +137,7 @@ public class BLEDevice: NSObject {
     }
     
     /// 脳波の検出を停止
-    func stop() {
+    public func stop() {
         guard let peripheral = connectedPeripheral,
               let modeCharacteristic = modeCharacteristic else {
             return
@@ -149,7 +149,7 @@ public class BLEDevice: NSObject {
 
 extension BLEDevice: CBCentralManagerDelegate {
     /// ペリフェラルを発見した
-    internal func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
+    public func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
         guard let deviceName = peripheral.name else {
             return
         }
@@ -158,7 +158,7 @@ extension BLEDevice: CBCentralManagerDelegate {
     }
     
     /// ペリフェラルに接続された
-    internal func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+    public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         peripheral.delegate = self
         peripheral.discoverServices([
             DeviceUUID.eegService.uuid,
@@ -170,19 +170,19 @@ extension BLEDevice: CBCentralManagerDelegate {
     }
     
     /// ペリフェラルと接続が解除された
-    internal func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+    public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         delegate?.didDisconnect()
         
         connectedPeripheral = nil
     }
     
     /// ペリフェラルとの接続に失敗した
-    internal func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+    public func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         delegate?.centralManager?(central, didFailToConnect: peripheral, error: error)
     }
     
     /// 状態が変化した
-    internal func centralManagerDidUpdateState(_ central: CBCentralManager) {
+    public func centralManagerDidUpdateState(_ central: CBCentralManager) {
         delegate?.centralManagerDidUpdateState?(central)
         switch central.state {
         case .poweredOn:
@@ -198,7 +198,7 @@ extension BLEDevice: CBCentralManagerDelegate {
 // MARK: - Peripheral Delegate
 extension BLEDevice: CBPeripheralDelegate {
     /// サービスを発見した
-    internal func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+    public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         if let error = error {
             print("Error discovering services: %s", error.localizedDescription)
             return
@@ -216,7 +216,7 @@ extension BLEDevice: CBPeripheralDelegate {
     }
     
     /// キャラクタリスティックを発見した
-    internal func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+    public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         if let error = error {
             print("Error discovering characteristics: %s", error.localizedDescription)
             return
@@ -241,14 +241,14 @@ extension BLEDevice: CBPeripheralDelegate {
     }
     
     /// connectした時の呼ばれる
-    internal func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+    public func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
         if let error = error {
             print(error.localizedDescription)
         }
     }
     
     /// Notify属性の値更新時に呼ばれる(ここの脳波データをハンドリング)
-    internal func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+    public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         if let error = error {
             print(error.localizedDescription)
         }
