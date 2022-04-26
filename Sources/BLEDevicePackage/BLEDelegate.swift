@@ -9,7 +9,7 @@ import Foundation
 import CoreBluetooth
 
 
-@objc protocol BLEDelegate {
+@objc public protocol BLEDelegate {
     func deviceFound(devName: String, mfgID: String, deviceID: String)
     func didConnect()
     func didDisconnect()
