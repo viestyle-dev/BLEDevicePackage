@@ -41,7 +41,7 @@ public class BLEDevice: NSObject {
     
     public static var shared = BLEDevice()
     
-    public var delegate: BLEDelegate?
+    private var delegate: BLEDelegate?
     
     private var centralManager: CBCentralManager!
     
@@ -74,6 +74,10 @@ public class BLEDevice: NSObject {
         super.init()
         
         centralManager = CBCentralManager(delegate: self, queue: queue)
+    }
+    
+    public func setDelegate(delegate: BLEDelegate) {
+        self.delegate = delegate
     }
     
     /// スキャン開始
