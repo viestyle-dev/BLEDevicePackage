@@ -12,6 +12,7 @@ public protocol BLEDelegate: AnyObject {
     func deviceFound(devName: String, mfgID: String, deviceID: String)
     func didConnect()
     func didDisconnect()
+    func didSetNotify()
     func eegSampleLeft(_ left: Int32, right: Int32)
     func sensorStatus(_ status: Int32)
     func battery(_ percent: Int32)

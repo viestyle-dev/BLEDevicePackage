@@ -233,6 +233,9 @@ extension BLEDevice: CBPeripheralDelegate {
             }
             if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
+                DispatchQueue.main.async {
+                    delegate?.didSetNotify()
+                }
             }
             if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
                 connectedPeripheral?.readValue(for: characteristic)
