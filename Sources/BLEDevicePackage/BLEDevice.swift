@@ -147,9 +147,11 @@ extension BLEDevice: CBCentralManagerDelegate {
             return
         }
 
-        delegate?.deviceFound(devName: deviceName, mfgID: peripheral.identifier.uuidString, deviceID: peripheral.identifier.uuidString)
+        DispatchQueue.main.async {
+            self.delegate?.deviceFound(devName: deviceName, mfgID: peripheral.identifier.uuidString, deviceID: peripheral.identifier.uuidString)
+        }
     }
-
+        
     /// ペリフェラルに接続された
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         peripheral.delegate = self
@@ -162,26 +164,33 @@ extension BLEDevice: CBCentralManagerDelegate {
 
     /// ペリフェラルと接続が解除された
     public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        delegate?.didDisconnect()
+        
+        DispatchQueue.main.async {
+            self.delegate?.didDisconnect()
+        }
 
         connectedPeripheral = nil
     }
 
     /// ペリフェラルとの接続に失敗した
     public func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        delegate?.centralManager(central, didFailToConnect: peripheral, error: error)
+        DispatchQueue.main.async {
+            self.delegate?.centralManager(central, didFailToConnect: peripheral, error: error)
+        }
     }
 
     /// 状態が変化した
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        delegate?.centralManagerDidUpdateState(central)
-        switch central.state {
-        case .poweredOn:
-            break
-        case .poweredOff, .resetting, .unauthorized, .unknown, .unsupported:
-            break
-        default:
-            break
+        DispatchQueue.main.async {
+            self.delegate?.centralManagerDidUpdateState(central)
+            switch central.state {
+            case .poweredOn:
+                break
+            case .poweredOff, .resetting, .unauthorized, .unknown, .unsupported:
+                break
+            default:
+                break
+            }
         }
     }
 }
@@ -230,7 +239,9 @@ extension BLEDevice: CBPeripheralDelegate {
                 batteryCharacteristic = characteristic
             }
         }
-        delegate?.didConnect()
+        DispatchQueue.main.async {
+            self.delegate?.didConnect()
+        }
     }
 
     /// connectした時の呼ばれる
@@ -278,7 +289,9 @@ extension BLEDevice: CBPeripheralDelegate {
 
         // 600fpsで脳波を送信 (30fps x 20data)
         for (leftValue, rightValue) in zip(leftValues, rightValues) {
-            delegate?.eegSampleLeft(Int32(leftValue), right: Int32(rightValue))
+            DispatchQueue.main.async {
+                self.delegate?.eegSampleLeft(Int32(leftValue), right: Int32(rightValue))
+            }
         }
     }
 
@@ -297,12 +310,16 @@ extension BLEDevice: CBPeripheralDelegate {
             return
         }
         let batteryPercent = data.encodedUInt8[0]
-        delegate?.battery(Int32(batteryPercent))
+        DispatchQueue.main.async {
+            self.delegate?.battery(Int32(batteryPercent))
+        }
     }
 
     /// 脳波デバイスの装着ステータスを更新 [0 : ok, 1 : left-x, 2 : right-x, 3 : both-x]
     private func handleSensorStatus(status: Int) {
-        delegate?.sensorStatus(Int32(status))
+        DispatchQueue.main.async {
+            self.delegate?.sensorStatus(Int32(status))
+        }
     }
 
     // periphery:ignore:parameters data
