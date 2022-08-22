@@ -11,7 +11,7 @@ import CoreBluetooth
 
 /// BLEDevice UUID
 private enum DeviceUUID: String {
-    // Device infomation (Read)
+    // DeviceInfo (Read)
     case deviceInfoService = "180A"
     case manufacturerCharacteristic = "2A29"
     case modelNumberCharacteristic = "2A24"
@@ -24,11 +24,9 @@ private enum DeviceUUID: String {
     case batteryCharacteristic = "2A19"
     // EEG
     case eegService = "0B79FFF0-1ED1-2840-A9C3-87C6F6186DB3"
-    // Write
-    case modeCharacteristic = "0B79FFA0-1ED1-2840-A9C3-87C6F6186DB3"
-    // Notify
-    case statusCharacteristic = "0B79FFB0-1ED1-2840-A9C3-87C6F6186DB3"
-    case streamCharacteristic = "0B79FFF6-1ED1-2840-A9C3-87C6F6186DB3"
+    case modeCharacteristic = "0B79FFA0-1ED1-2840-A9C3-87C6F6186DB3" // Write
+    case statusCharacteristic = "0B79FFB0-1ED1-2840-A9C3-87C6F6186DB3" // Notify
+    case streamCharacteristic = "0B79FFF6-1ED1-2840-A9C3-87C6F6186DB3" // Notify
 
     var uuid: CBUUID {
         CBUUID(string: rawValue)
@@ -47,7 +45,13 @@ public final class BLEDevice: NSObject {
 
     private var modeCharacteristic: CBCharacteristic?
     private var batteryCharacteristic: CBCharacteristic?
-
+    private var manufacturerNameCharacteristic: CBCharacteristic?
+    private var modelNumberCharacteristic: CBCharacteristic?
+    private var serialNumberCharacteristic: CBCharacteristic?
+    private var hardwareRevisionCharacteristic: CBCharacteristic?
+    private var firmwareRevisionCharacteristic: CBCharacteristic?
+    private var softwareRevisionCharacteristic: CBCharacteristic?
+    
     // 脳波検出開始コード
     private let startBytes: [UInt8] = [
         0x77, 0x01, 0x01, 0x00, 0x00,
@@ -157,14 +161,17 @@ extension BLEDevice: CBCentralManagerDelegate {
         peripheral.delegate = self
         peripheral.discoverServices([
             DeviceUUID.eegService.uuid,
-            DeviceUUID.batteryService.uuid
+            DeviceUUID.batteryService.uuid,
+            DeviceUUID.deviceInfoService.uuid
         ])
         connectedPeripheral = peripheral
+        DispatchQueue.main.sync {
+            self.delegate?.didConnect()
+        }
     }
 
     /// ペリフェラルと接続が解除された
     public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        
         DispatchQueue.main.sync {
             self.delegate?.didDisconnect()
         }
@@ -207,12 +214,28 @@ extension BLEDevice: CBPeripheralDelegate {
 
         guard let peripheralServices = peripheral.services else { return }
         for service in peripheralServices {
-            peripheral.discoverCharacteristics([
-                DeviceUUID.modeCharacteristic.uuid,
-                DeviceUUID.statusCharacteristic.uuid,
-                DeviceUUID.streamCharacteristic.uuid,
-                DeviceUUID.batteryCharacteristic.uuid
-            ], for: service)
+            if service.uuid == DeviceUUID.deviceInfoService.uuid {
+                peripheral.discoverCharacteristics([
+                    DeviceUUID.manufacturerCharacteristic.uuid,
+                    DeviceUUID.modelNumberCharacteristic.uuid,
+                    DeviceUUID.serialNumberCharacteristic.uuid,
+                    DeviceUUID.hardwareRevCharacteristic.uuid,
+                    DeviceUUID.firmwareRevCharacteristic.uuid,
+                    DeviceUUID.softwareRevCharacteristic.uuid
+                ], for: service)
+            }
+            if service.uuid == DeviceUUID.batteryService.uuid {
+                peripheral.discoverCharacteristics([
+                    DeviceUUID.batteryCharacteristic.uuid,
+                ], for: service)
+            }
+            if service.uuid == DeviceUUID.eegService.uuid {
+                peripheral.discoverCharacteristics([
+                    DeviceUUID.modeCharacteristic.uuid,
+                    DeviceUUID.statusCharacteristic.uuid,
+                    DeviceUUID.streamCharacteristic.uuid,
+                ], for: service)
+            }
         }
     }
 
@@ -225,6 +248,34 @@ extension BLEDevice: CBPeripheralDelegate {
 
         guard let serviceCharacteristics = service.characteristics else { return }
         for characteristic in serviceCharacteristics {
+            if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
+                connectedPeripheral?.readValue(for: characteristic)
+                batteryCharacteristic = characteristic
+            }
+            if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
+                connectedPeripheral?.readValue(for: characteristic)
+                manufacturerNameCharacteristic = characteristic
+            }
+            if characteristic.uuid == DeviceUUID.modelNumberCharacteristic.uuid {
+                connectedPeripheral?.readValue(for: characteristic)
+                modelNumberCharacteristic = characteristic
+            }
+            if characteristic.uuid == DeviceUUID.serialNumberCharacteristic.uuid {
+                connectedPeripheral?.readValue(for: characteristic)
+                serialNumberCharacteristic = characteristic
+            }
+            if characteristic.uuid == DeviceUUID.hardwareRevCharacteristic.uuid {
+                connectedPeripheral?.readValue(for: characteristic)
+                hardwareRevisionCharacteristic = characteristic
+            }
+            if characteristic.uuid == DeviceUUID.firmwareRevCharacteristic.uuid {
+                connectedPeripheral?.readValue(for: characteristic)
+                firmwareRevisionCharacteristic = characteristic
+            }
+            if characteristic.uuid == DeviceUUID.softwareRevCharacteristic.uuid {
+                connectedPeripheral?.readValue(for: characteristic)
+                softwareRevisionCharacteristic = characteristic
+            }
             if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
             }
@@ -237,13 +288,6 @@ extension BLEDevice: CBPeripheralDelegate {
                     delegate?.didSetNotify()
                 }
             }
-            if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
-                connectedPeripheral?.readValue(for: characteristic)
-                batteryCharacteristic = characteristic
-            }
-        }
-        DispatchQueue.main.sync {
-            self.delegate?.didConnect()
         }
     }
 
@@ -259,20 +303,45 @@ extension BLEDevice: CBPeripheralDelegate {
         if let error = error {
             print(error.localizedDescription)
         }
-
         if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid {
-            // ステータス更新
-            if let data = characteristic.value {
-                handleEEGStatus(data: data)
-            }
-
-        } else if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
-            if let data = characteristic.value {
-                handleEEGSignal(data: data)
-            }
-        } else if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
+            if let data = characteristic.value { handleEEGStatus(data: data) }
+        }
+        if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
+            if let data = characteristic.value { handleEEGSignal(data: data) }
+        }
+        if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
             handleBatteryStatus(characteristic: characteristic)
         }
+        if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
+            guard let name = handleStringData(data: characteristic.value) else { return }
+            DispatchQueue.main.sync { self.delegate?.didReadManufacturerName(name: name) }
+        }
+        if characteristic.uuid == DeviceUUID.modelNumberCharacteristic.uuid {
+            guard let number = handleStringData(data: characteristic.value) else { return }
+            DispatchQueue.main.sync { self.delegate?.didReadModelNumber(number: number) }
+        }
+        if characteristic.uuid == DeviceUUID.serialNumberCharacteristic.uuid {
+            guard let number = handleStringData(data: characteristic.value) else { return }
+            DispatchQueue.main.sync { self.delegate?.didReadSerialNumber(number: number) }
+        }
+        if characteristic.uuid == DeviceUUID.hardwareRevCharacteristic.uuid {
+            guard let rev = handleStringData(data: characteristic.value) else { return }
+            DispatchQueue.main.sync { self.delegate?.didReadHardwareRevision(revision: rev) }
+        }
+        if characteristic.uuid == DeviceUUID.firmwareRevCharacteristic.uuid {
+            guard let rev = handleStringData(data: characteristic.value) else { return }
+            DispatchQueue.main.sync { self.delegate?.didReadFirmwareRevision(revision: rev) }
+        }
+        if characteristic.uuid == DeviceUUID.softwareRevCharacteristic.uuid {
+            guard let rev = handleStringData(data: characteristic.value) else { return }
+            DispatchQueue.main.sync { self.delegate?.didReadSoftwareRevision(revision: rev) }
+        }
+    }
+    
+    /// Data -> String
+    private func handleStringData(data: Data?) -> String? {
+        guard let data = data else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     /// 脳波データを送信
