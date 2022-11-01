@@ -359,11 +359,8 @@ extension BLEDevice: CBPeripheralDelegate {
             readBattery()
         }
 
-        // 600fpsで脳波を送信 (30fps x 20data)
-        for (leftValue, rightValue) in zip(leftValues, rightValues) {
-            DispatchQueue.main.sync {
-                self.delegate?.eegSampleLeft(Int32(leftValue), right: Int32(rightValue))
-            }
+        DispatchQueue.main.sync {
+            self.delegate?.eegSampleLefts(leftValues, rights: rightValues)
         }
     }
 
