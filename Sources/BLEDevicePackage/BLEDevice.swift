@@ -41,9 +41,10 @@ public final class BLEDevice: NSObject {
     private var centralManager: CBCentralManager!
 
     // 接続されたペリフェラル
-    private var connectedPeripheral: CBPeripheral?
+    private var connectedPeripheralIdentifiers = [String]()
+    private var connectedPeripherals = [CBPeripheral]()
 
-    private var modeCharacteristic: CBCharacteristic?
+    private var modeCharacteristic = [String: CBCharacteristic]()
     private var batteryCharacteristic: CBCharacteristic?
     private var manufacturerNameCharacteristic: CBCharacteristic?
     private var modelNumberCharacteristic: CBCharacteristic?
@@ -68,7 +69,7 @@ public final class BLEDevice: NSObject {
     ]
 
     let queue: DispatchQueue
-
+    
     override private init() {
         queue = DispatchQueue(label: "BLEDevice.bleQueue")
 
@@ -94,53 +95,63 @@ public final class BLEDevice: NSObject {
 
     /// 接続
     public func connect(_ deviceID: String) {
-        guard let lastUUID = UUID(uuidString: deviceID),
-              let peripheral = centralManager.retrievePeripherals(withIdentifiers: [lastUUID]).first else {
-            return
+        // IDで保持する方が良いか、CBPeripheralの保持だけで良いか
+        if connectedPeripheralIdentifiers.filter({ $0 == deviceID }).isEmpty {
+            connectedPeripheralIdentifiers.append(deviceID)
         }
-        // 強参照が必要なのでプロパティとして保持
-        connectedPeripheral = peripheral
-        centralManager.connect(peripheral,
-                               options: [CBConnectPeripheralOptionEnableTransportBridgingKey: true])
+        let uuids = connectedPeripheralIdentifiers.map { UUID(uuidString: $0)! }
+        
+        // CBPeripheralは強参照で保持する必要がある(保持しないとエラーを送出して、データを取得できない)
+        connectedPeripherals = centralManager.retrievePeripherals(withIdentifiers: uuids)
+        for peripheral in connectedPeripherals {
+            centralManager.connect(
+                peripheral,
+                options: [CBConnectPeripheralOptionEnableTransportBridgingKey: true]
+            )
+        }
     }
 
     /// 接続を解除
     public func disconnectDevice() {
-        guard let peripheral = connectedPeripheral else {
-            return
-        }
-
-        for service in peripheral.services ?? [] as [CBService] {
-            for characteristic in service.characteristics ?? [] as [CBCharacteristic] {
-                if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid, characteristic.isNotifying {
-                    peripheral.setNotifyValue(false, for: characteristic)
-                }
-                if characteristic.uuid == DeviceUUID.modeCharacteristic.uuid, characteristic.isNotifying {
-                    peripheral.setNotifyValue(false, for: characteristic)
+        for peripheral in connectedPeripherals {
+            for service in peripheral.services ?? [] as [CBService] {
+                for characteristic in service.characteristics ?? [] as [CBCharacteristic] {
+                    if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid, characteristic.isNotifying {
+                        peripheral.setNotifyValue(false, for: characteristic)
+                    }
+                    if characteristic.uuid == DeviceUUID.modeCharacteristic.uuid, characteristic.isNotifying {
+                        peripheral.setNotifyValue(false, for: characteristic)
+                    }
                 }
             }
+            centralManager.cancelPeripheralConnection(peripheral)
         }
-        centralManager.cancelPeripheralConnection(peripheral)
+        connectedPeripherals.removeAll()
+        connectedPeripheralIdentifiers.removeAll()
     }
 
     /// 脳波の検出を開始
     public func start() {
-        guard let peripheral = connectedPeripheral,
-              let modeCharacteristic = modeCharacteristic else {
-            return
+        let uuids = connectedPeripheralIdentifiers.map { UUID(uuidString: $0)! }
+        let peripherals = centralManager.retrievePeripherals(withIdentifiers: uuids)
+        for peripheral in peripherals {
+            guard let c = modeCharacteristic[peripheral.identifier.uuidString] else {
+                continue
+            }
+            peripheral.writeValue(Data(self.startBytes), for: c, type: .withResponse)
         }
-
-        peripheral.writeValue(Data(startBytes), for: modeCharacteristic, type: .withResponse)
     }
 
     /// 脳波の検出を停止
     public func stop() {
-        guard let peripheral = connectedPeripheral,
-              let modeCharacteristic = modeCharacteristic else {
-            return
+        let uuids = connectedPeripheralIdentifiers.map { UUID(uuidString: $0)! }
+        let peripherals = centralManager.retrievePeripherals(withIdentifiers: uuids)
+        for peripheral in peripherals {
+            guard let c = modeCharacteristic[peripheral.identifier.uuidString] else {
+                continue
+            }
+            peripheral.writeValue(Data(stopBytes), for: c, type: .withResponse)
         }
-
-        peripheral.writeValue(Data(stopBytes), for: modeCharacteristic, type: .withResponse)
     }
 }
 
@@ -164,7 +175,7 @@ extension BLEDevice: CBCentralManagerDelegate {
             DeviceUUID.batteryService.uuid,
             DeviceUUID.deviceInfoService.uuid
         ])
-        connectedPeripheral = peripheral
+        
         DispatchQueue.main.sync {
             self.delegate?.didConnect()
         }
@@ -176,7 +187,7 @@ extension BLEDevice: CBCentralManagerDelegate {
             self.delegate?.didDisconnect()
         }
 
-        connectedPeripheral = nil
+        connectedPeripheralIdentifiers.removeAll()
     }
 
     /// ペリフェラルとの接続に失敗した
@@ -235,6 +246,7 @@ extension BLEDevice: CBPeripheralDelegate {
                     DeviceUUID.statusCharacteristic.uuid,
                     DeviceUUID.streamCharacteristic.uuid,
                 ], for: service)
+                print("service \(peripheral.identifier.uuidString)")
             }
         }
     }
@@ -248,42 +260,47 @@ extension BLEDevice: CBPeripheralDelegate {
 
         guard let serviceCharacteristics = service.characteristics else { return }
         for characteristic in serviceCharacteristics {
-            if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
-                connectedPeripheral?.readValue(for: characteristic)
-                batteryCharacteristic = characteristic
-            }
-            if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
-                connectedPeripheral?.readValue(for: characteristic)
-                manufacturerNameCharacteristic = characteristic
-            }
-            if characteristic.uuid == DeviceUUID.modelNumberCharacteristic.uuid {
-                connectedPeripheral?.readValue(for: characteristic)
-                modelNumberCharacteristic = characteristic
-            }
-            if characteristic.uuid == DeviceUUID.serialNumberCharacteristic.uuid {
-                connectedPeripheral?.readValue(for: characteristic)
-                serialNumberCharacteristic = characteristic
-            }
-            if characteristic.uuid == DeviceUUID.hardwareRevCharacteristic.uuid {
-                connectedPeripheral?.readValue(for: characteristic)
-                hardwareRevisionCharacteristic = characteristic
-            }
-            if characteristic.uuid == DeviceUUID.firmwareRevCharacteristic.uuid {
-                connectedPeripheral?.readValue(for: characteristic)
-                firmwareRevisionCharacteristic = characteristic
-            }
-            if characteristic.uuid == DeviceUUID.softwareRevCharacteristic.uuid {
-                connectedPeripheral?.readValue(for: characteristic)
-                softwareRevisionCharacteristic = characteristic
-            }
+//            if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
+//                connectedPeripheral?.readValue(for: characteristic)
+//                batteryCharacteristic = characteristic
+//            }
+//            if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
+//                connectedPeripheral?.readValue(for: characteristic)
+//                manufacturerNameCharacteristic = characteristic
+//            }
+//            if characteristic.uuid == DeviceUUID.modelNumberCharacteristic.uuid {
+//                connectedPeripheral?.readValue(for: characteristic)
+//                modelNumberCharacteristic = characteristic
+//            }
+//            if characteristic.uuid == DeviceUUID.serialNumberCharacteristic.uuid {
+//                connectedPeripheral?.readValue(for: characteristic)
+//                serialNumberCharacteristic = characteristic
+//            }
+//            if characteristic.uuid == DeviceUUID.hardwareRevCharacteristic.uuid {
+//                connectedPeripheral?.readValue(for: characteristic)
+//                hardwareRevisionCharacteristic = characteristic
+//            }
+//            if characteristic.uuid == DeviceUUID.firmwareRevCharacteristic.uuid {
+//                connectedPeripheral?.readValue(for: characteristic)
+//                firmwareRevisionCharacteristic = characteristic
+//            }
+//            if characteristic.uuid == DeviceUUID.softwareRevCharacteristic.uuid {
+//                connectedPeripheral?.readValue(for: characteristic)
+//                softwareRevisionCharacteristic = characteristic
+//            }
             if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
             }
             if characteristic.uuid == DeviceUUID.modeCharacteristic.uuid {
-                modeCharacteristic = characteristic
+                for identifier in connectedPeripheralIdentifiers {
+                    if peripheral.identifier.uuidString == identifier {
+                        modeCharacteristic[identifier] = characteristic
+                    }
+                }
             }
             if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
+                print("charactristic \(peripheral.identifier.uuidString)")
                 DispatchQueue.main.sync {
                     delegate?.didSetNotify()
                 }
@@ -307,7 +324,9 @@ extension BLEDevice: CBPeripheralDelegate {
             if let data = characteristic.value { handleEEGStatus(data: data) }
         }
         if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
-            if let data = characteristic.value { handleEEGSignal(data: data) }
+            if let data = characteristic.value {
+                handleEEGSignal(uuidStr: peripheral.identifier.uuidString, data: data)
+            }
         }
         if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
             handleBatteryStatus(characteristic: characteristic)
@@ -345,7 +364,7 @@ extension BLEDevice: CBPeripheralDelegate {
     }
 
     /// 脳波データを送信
-    private func handleEEGSignal(data: Data) {
+    private func handleEEGSignal(uuidStr: String, data: Data) {
         let index: UInt8 = data[0]
         let status: UInt8 = data[1]
         let leftData = data[2 ... 41]
@@ -359,21 +378,18 @@ extension BLEDevice: CBPeripheralDelegate {
             readBattery()
         }
 
-        // 600fpsで脳波を送信 (30fps x 20data)
-        for (leftValue, rightValue) in zip(leftValues, rightValues) {
-            DispatchQueue.main.sync {
-                self.delegate?.eegSampleLeft(Int32(leftValue), right: Int32(rightValue))
-            }
+        DispatchQueue.main.sync {
+            self.delegate?.eegSampleLefts(uuidStr: uuidStr, lefts: leftValues, rights: rightValues)
         }
     }
 
     /// バッテリー容量の読み出し
     private func readBattery() {
-        guard let peripheral = connectedPeripheral,
-              let batteryCharacteristic = batteryCharacteristic else {
-            return
-        }
-        peripheral.readValue(for: batteryCharacteristic)
+//        guard let peripheral = connectedPeripheral,
+//              let batteryCharacteristic = batteryCharacteristic else {
+//            return
+//        }
+//        peripheral.readValue(for: batteryCharacteristic)
     }
 
     /// バッテリー容量の読み出しのコールバック

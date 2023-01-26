@@ -19,7 +19,7 @@ public protocol BLEDelegate: AnyObject {
     func didReadHardwareRevision(revision: String)
     func didReadFirmwareRevision(revision: String)
     func didReadSoftwareRevision(revision: String)
-    func eegSampleLeft(_ left: Int32, right: Int32)
+    func eegSampleLefts(uuidStr: String, lefts: [Int16], rights: [Int16])
     func sensorStatus(_ status: Int32)
     func battery(_ percent: Int32)
     func centralManagerDidUpdateState(_ central: CBCentralManager)
