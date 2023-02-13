@@ -132,9 +132,7 @@ public final class BLEDevice: NSObject {
 
     /// 脳波の検出を開始
     public func start() {
-        let uuids = connectedPeripheralIdentifiers.map { UUID(uuidString: $0)! }
-        let peripherals = centralManager.retrievePeripherals(withIdentifiers: uuids)
-        for peripheral in peripherals {
+        for peripheral in connectedPeripherals {
             guard let c = modeCharacteristic[peripheral.identifier.uuidString] else {
                 continue
             }
@@ -144,9 +142,7 @@ public final class BLEDevice: NSObject {
 
     /// 脳波の検出を停止
     public func stop() {
-        let uuids = connectedPeripheralIdentifiers.map { UUID(uuidString: $0)! }
-        let peripherals = centralManager.retrievePeripherals(withIdentifiers: uuids)
-        for peripheral in peripherals {
+        for peripheral in connectedPeripherals {
             guard let c = modeCharacteristic[peripheral.identifier.uuidString] else {
                 continue
             }
