@@ -309,39 +309,38 @@ extension BLEDevice: CBPeripheralDelegate {
         if let error = error {
             print(error.localizedDescription)
         }
-        if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid {
-            if let data = characteristic.value { handleEEGStatus(data: data) }
-        }
         if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
             if let data = characteristic.value {
-                handleEEGSignal(uuidStr: peripheral.identifier.uuidString, data: data)
+                updateEEGSignal(data, uuid: peripheral.identifier.uuidString)
             }
         }
         if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
-            handleBatteryStatus(uuid: peripheral.identifier.uuidString, characteristic: characteristic)
+            if let data = characteristic.value {
+                updateBattery(data, uuid: peripheral.identifier.uuidString)
+            }
         }
         if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
-            guard let name = handleStringData(data: characteristic.value) else { return }
+            guard let name = convertName(by: characteristic.value) else { return }
             DispatchQueue.main.sync { self.delegate?.didReadManufacturerName(uuid: peripheral.identifier.uuidString, name: name) }
         }
         if characteristic.uuid == DeviceUUID.modelNumberCharacteristic.uuid {
-            guard let number = handleStringData(data: characteristic.value) else { return }
+            guard let number = convertName(by: characteristic.value) else { return }
             DispatchQueue.main.sync { self.delegate?.didReadModelNumber(uuid: peripheral.identifier.uuidString, number: number) }
         }
         if characteristic.uuid == DeviceUUID.serialNumberCharacteristic.uuid {
-            guard let number = handleStringData(data: characteristic.value) else { return }
+            guard let number = convertName(by: characteristic.value) else { return }
             DispatchQueue.main.sync { self.delegate?.didReadSerialNumber(uuid: peripheral.identifier.uuidString, number: number) }
         }
         if characteristic.uuid == DeviceUUID.hardwareRevCharacteristic.uuid {
-            guard let rev = handleStringData(data: characteristic.value) else { return }
+            guard let rev = convertName(by: characteristic.value) else { return }
             DispatchQueue.main.sync { self.delegate?.didReadHardwareRevision(uuid: peripheral.identifier.uuidString, revision: rev) }
         }
         if characteristic.uuid == DeviceUUID.firmwareRevCharacteristic.uuid {
-            guard let rev = handleStringData(data: characteristic.value) else { return }
+            guard let rev = convertName(by: characteristic.value) else { return }
             DispatchQueue.main.sync { self.delegate?.didReadFirmwareRevision(uuid: peripheral.identifier.uuidString, revision: rev) }
         }
         if characteristic.uuid == DeviceUUID.softwareRevCharacteristic.uuid {
-            guard let rev = handleStringData(data: characteristic.value) else { return }
+            guard let rev = convertName(by: characteristic.value) else { return }
             DispatchQueue.main.sync { self.delegate?.didReadSoftwareRevision(uuid: peripheral.identifier.uuidString, revision: rev) }
         }
     }
@@ -358,32 +357,6 @@ extension BLEDevice: CBPeripheralDelegate {
         }
     }
     
-    /// Data -> String
-    private func handleStringData(data: Data?) -> String? {
-        guard let data = data else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    /// 脳波データを送信
-    private func handleEEGSignal(uuidStr: String, data: Data) {
-        let index: UInt8 = data[0]
-        let status: UInt8 = data[1]
-        let leftData = data[2 ... 41]
-        let rightData = data[42 ... data.count - 1]
-        let leftValues = leftData.encodedInt16
-        let rightValues = rightData.encodedInt16
-
-        // 1秒ごとにステータスを送信
-        if index == 0 {
-            handleSensorStatus(uuid: uuidStr, status: Int(status))
-            readBattery()
-        }
-
-        DispatchQueue.main.sync {
-            self.delegate?.eegSampleLefts(uuid: uuidStr, lefts: leftValues, rights: rightValues)
-        }
-    }
-
     /// バッテリー容量の読み出し
     private func readBattery() {
         for peripheral in connectedPeripherals {
@@ -393,12 +366,36 @@ extension BLEDevice: CBPeripheralDelegate {
             peripheral.readValue(for: c)
         }
     }
+  
+    /// Data -> String
+    private func convertName(by data: Data?) -> String? {
+        guard let data = data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// 脳波データを送信
+    private func updateEEGSignal(_ data: Data, uuid: String) {
+        let index: UInt8 = data[0]
+        let status: UInt8 = data[1]
+        let leftData = data[2 ... 41]
+        let rightData = data[42 ... data.count - 1]
+        let leftValues = leftData.encodedInt16
+        let rightValues = rightData.encodedInt16
+
+        // 1秒ごとにステータスを送信
+        if index == 0 {
+            updateSensorStatus(uuid: uuid, status: Int(status))
+            readBattery()
+        }
+
+        DispatchQueue.main.sync {
+            self.delegate?.eegSampleLefts(uuid: uuid, lefts: leftValues, rights: rightValues)
+        }
+    }
+
 
     /// バッテリー容量の読み出しのコールバック
-    private func handleBatteryStatus(uuid: String, characteristic: CBCharacteristic) {
-        guard let data = characteristic.value else {
-            return
-        }
+    private func updateBattery(_ data: Data, uuid: String) {
         let batteryPercent = data.encodedUInt8[0]
         DispatchQueue.main.sync {
             self.delegate?.battery(uuid: uuid, percent: Int32(batteryPercent))
@@ -406,16 +403,10 @@ extension BLEDevice: CBPeripheralDelegate {
     }
 
     /// 脳波デバイスの装着ステータスを更新 [0 : ok, 1 : left-x, 2 : right-x, 3 : both-x]
-    private func handleSensorStatus(uuid: String, status: Int) {
+    private func updateSensorStatus(uuid: String, status: Int) {
         DispatchQueue.main.sync {
             self.delegate?.sensorStatus(uuid: uuid, status: Int32(status))
         }
-    }
-
-    // periphery:ignore:parameters data
-    /// EEG取得開始、停止時のハンドリング
-    private func handleEEGStatus(data: Data) {
-//        print(data.encodedUInt8)
     }
 }
 
