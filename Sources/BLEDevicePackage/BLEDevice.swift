@@ -45,7 +45,7 @@ public final class BLEDevice: NSObject {
     private var connectedPeripherals = [CBPeripheral]()
 
     private var modeCharacteristic = [String: CBCharacteristic]()
-    private var batteryCharacteristic: CBCharacteristic?
+    private var batteryCharacteristic = [String: CBCharacteristic]()
     private var manufacturerNameCharacteristic: CBCharacteristic?
     private var modelNumberCharacteristic: CBCharacteristic?
     private var serialNumberCharacteristic: CBCharacteristic?
@@ -256,10 +256,6 @@ extension BLEDevice: CBPeripheralDelegate {
 
         guard let serviceCharacteristics = service.characteristics else { return }
         for characteristic in serviceCharacteristics {
-//            if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
-//                connectedPeripheral?.readValue(for: characteristic)
-//                batteryCharacteristic = characteristic
-//            }
 //            if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
 //                connectedPeripheral?.readValue(for: characteristic)
 //                manufacturerNameCharacteristic = characteristic
@@ -284,6 +280,14 @@ extension BLEDevice: CBPeripheralDelegate {
 //                connectedPeripheral?.readValue(for: characteristic)
 //                softwareRevisionCharacteristic = characteristic
 //            }
+            if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
+                for identifier in connectedPeripheralIdentifiers {
+                    if peripheral.identifier.uuidString == identifier {
+                        batteryCharacteristic[identifier] = characteristic
+                        peripheral.readValue(for: characteristic)
+                    }
+                }
+            }
             if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
             }
@@ -325,7 +329,7 @@ extension BLEDevice: CBPeripheralDelegate {
             }
         }
         if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
-            handleBatteryStatus(characteristic: characteristic)
+            handleBatteryStatus(id: peripheral.identifier.uuidString, characteristic: characteristic)
         }
         if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
             guard let name = handleStringData(data: characteristic.value) else { return }
@@ -375,27 +379,28 @@ extension BLEDevice: CBPeripheralDelegate {
         }
 
         DispatchQueue.main.sync {
-            self.delegate?.eegSampleLefts(uuidStr: uuidStr, lefts: leftValues, rights: rightValues)
+            self.delegate?.eegSampleLefts(uuid: uuidStr, lefts: leftValues, rights: rightValues)
         }
     }
 
     /// バッテリー容量の読み出し
     private func readBattery() {
-//        guard let peripheral = connectedPeripheral,
-//              let batteryCharacteristic = batteryCharacteristic else {
-//            return
-//        }
-//        peripheral.readValue(for: batteryCharacteristic)
+        for peripheral in connectedPeripherals {
+            guard let c = batteryCharacteristic[peripheral.identifier.uuidString] else {
+                continue
+            }
+            peripheral.readValue(for: c)
+        }
     }
 
     /// バッテリー容量の読み出しのコールバック
-    private func handleBatteryStatus(characteristic: CBCharacteristic) {
+    private func handleBatteryStatus(id: String, characteristic: CBCharacteristic) {
         guard let data = characteristic.value else {
             return
         }
         let batteryPercent = data.encodedUInt8[0]
         DispatchQueue.main.sync {
-            self.delegate?.battery(Int32(batteryPercent))
+            self.delegate?.battery(id: id, percent: Int32(batteryPercent))
         }
     }
 
