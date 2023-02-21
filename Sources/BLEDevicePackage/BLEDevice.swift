@@ -173,7 +173,7 @@ extension BLEDevice: CBCentralManagerDelegate {
         ])
         
         DispatchQueue.main.sync {
-            self.delegate?.didConnect()
+            self.delegate?.didConnect(uuid: peripheral.identifier.uuidString)
         }
     }
 

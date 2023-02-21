@@ -10,7 +10,7 @@ import Foundation
 
 public protocol BLEDelegate: AnyObject {
     func deviceFound(devName: String, mfgID: String, deviceID: String)
-    func didConnect()
+    func didConnect(uuid: String)
     func didDisconnect()
     func didSetNotify()
     func didReadManufacturerName(uuid: String, name: String)
