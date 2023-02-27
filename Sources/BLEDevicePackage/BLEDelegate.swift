@@ -9,7 +9,7 @@ import CoreBluetooth
 import Foundation
 
 public protocol BLEDelegate: AnyObject {
-    func deviceFound(devName: String, mfgID: String, deviceID: String)
+    func didFindDevice(name: String, deviceID: String)
     func didConnect(uuid: String)
     func didDisconnect()
     func didSetNotify()
@@ -19,9 +19,12 @@ public protocol BLEDelegate: AnyObject {
     func didReadHardwareRevision(uuid: String, revision: String)
     func didReadFirmwareRevision(uuid: String, revision: String)
     func didReadSoftwareRevision(uuid: String, revision: String)
-    func eegSampleLefts(uuid: String, lefts: [Int16], rights: [Int16])
-    func sensorStatus(uuid: String, status: Int32)
-    func battery(uuid: String, percent: Int32)
+    func didUpdateEEGLeft(values: [Int16])
+    func didUpdateEEGRight(values: [Int16])
+    func didUpdateSensorStatusLeft(status: Int32)
+    func didUpdateSensorStatusRight(status: Int32)
+    func didUpdateBatteryLeft(percent: Int32)
+    func didUpdateBatteryRight(percent: Int32)
     func centralManagerDidUpdateState(_ central: CBCentralManager)
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?)
 }
