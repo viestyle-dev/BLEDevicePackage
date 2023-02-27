@@ -33,6 +33,7 @@ private enum DeviceUUID: String {
     }
 }
 
+/// For Two BLE Example
 public enum DeviceType {
     case left
     case right
@@ -44,9 +45,10 @@ public final class BLEDevice: NSObject {
     private weak var delegate: BLEDelegate?
 
     private var centralManager: CBCentralManager!
+    
+    private let queue: DispatchQueue
 
     // 接続されたペリフェラル
-    private var connectedPeripheralIdentifiers = [String]()
     private var connectedPeripherals = [CBPeripheral]()
     private var leftPeriphralIdentifier: String?
     private var rightPeripheralIdentifier: String?
@@ -74,22 +76,6 @@ public final class BLEDevice: NSObject {
         0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0xFE
     ]
-
-    let queue: DispatchQueue
-    
-    func deviceType(fromUUIDString uuid: String) -> DeviceType? {
-        guard let leftPeriphralIdentifier = leftPeriphralIdentifier,
-              let rightPeripheralIdentifier = rightPeripheralIdentifier else {
-            return nil
-        }
-        
-        if uuid == leftPeriphralIdentifier {
-            return .left
-        } else if uuid == rightPeripheralIdentifier {
-            return .right
-        }
-        return nil
-    }
     
     override private init() {
         queue = DispatchQueue(label: "BLEDevice.bleQueue")
@@ -99,10 +85,7 @@ public final class BLEDevice: NSObject {
         centralManager = CBCentralManager(delegate: self, queue: queue)
     }
 
-    public func setDelegate(delegate: BLEDelegate) {
-        self.delegate = delegate
-    }
-
+    // MARK: - Actions
     /// スキャン開始
     public func scanDevice() {
         let services = [DeviceUUID.deviceInfoService.uuid]
@@ -149,10 +132,12 @@ public final class BLEDevice: NSObject {
         for peripheral in connectedPeripherals {
             for service in peripheral.services ?? [] as [CBService] {
                 for characteristic in service.characteristics ?? [] as [CBCharacteristic] {
-                    if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid, characteristic.isNotifying {
+                    if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid,
+                       characteristic.isNotifying {
                         peripheral.setNotifyValue(false, for: characteristic)
                     }
-                    if characteristic.uuid == DeviceUUID.modeCharacteristic.uuid, characteristic.isNotifying {
+                    if characteristic.uuid == DeviceUUID.modeCharacteristic.uuid,
+                       characteristic.isNotifying {
                         peripheral.setNotifyValue(false, for: characteristic)
                     }
                 }
@@ -160,7 +145,8 @@ public final class BLEDevice: NSObject {
             centralManager.cancelPeripheralConnection(peripheral)
         }
         connectedPeripherals.removeAll()
-        connectedPeripheralIdentifiers.removeAll()
+        leftPeriphralIdentifier = nil
+        rightPeripheralIdentifier = nil
     }
 
     /// 脳波の検出を開始
@@ -182,8 +168,28 @@ public final class BLEDevice: NSObject {
             peripheral.writeValue(Data(stopBytes), for: c, type: .withResponse)
         }
     }
+    
+    // MARK: - Utils
+    public func setDelegate(delegate: BLEDelegate) {
+        self.delegate = delegate
+    }
+
+    func deviceType(fromUUIDString uuid: String) -> DeviceType? {
+        guard let leftPeriphralIdentifier = leftPeriphralIdentifier,
+              let rightPeripheralIdentifier = rightPeripheralIdentifier else {
+            return nil
+        }
+        
+        if uuid == leftPeriphralIdentifier {
+            return .left
+        } else if uuid == rightPeripheralIdentifier {
+            return .right
+        }
+        return nil
+    }
 }
 
+// MARK: - CBCentralManager Delegate
 extension BLEDevice: CBCentralManagerDelegate {
     /// ペリフェラルを発見した
     public func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
@@ -216,7 +222,8 @@ extension BLEDevice: CBCentralManagerDelegate {
             self.delegate?.didDisconnect()
         }
 
-        connectedPeripheralIdentifiers.removeAll()
+        leftPeriphralIdentifier = nil
+        rightPeripheralIdentifier = nil
     }
 
     /// ペリフェラルとの接続に失敗した
@@ -308,35 +315,16 @@ extension BLEDevice: CBPeripheralDelegate {
                 readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &softwareRevisionCharacteristic)
             }
             if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
-                if let identifer = leftPeriphralIdentifier {
-                    if identifer == peripheral.identifier.uuidString {
-                        batteryCharacteristic[identifer] = characteristic
-                    }
-                }
-                if let identifer = rightPeripheralIdentifier {
-                    if identifer == peripheral.identifier.uuidString {
-                        batteryCharacteristic[identifer] = characteristic
-                    }
-                }
+                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &batteryCharacteristic)
             }
             if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
             }
             if characteristic.uuid == DeviceUUID.modeCharacteristic.uuid {
-                if let identifer = leftPeriphralIdentifier {
-                    if identifer == peripheral.identifier.uuidString {
-                        modeCharacteristic[identifer] = characteristic
-                    }
-                }
-                if let identifer = rightPeripheralIdentifier {
-                    if identifer == peripheral.identifier.uuidString {
-                        modeCharacteristic[identifer] = characteristic
-                    }
-                }
-        }
+                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &modeCharacteristic)
+            }
             if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
-                print("charactristic \(peripheral.identifier.uuidString)")
                 DispatchQueue.main.sync {
                     delegate?.didSetNotify()
                 }
@@ -396,11 +384,15 @@ extension BLEDevice: CBPeripheralDelegate {
         }
     }
     
+    // MARK: - Utils
     /// BLEデバイスから値を呼んで、キャラクタリスティックを保持
     private func readValue(fromPeripheral peripheral: CBPeripheral,
                            by characteristic: CBCharacteristic,
                            withStoreCharacteristic: inout [String: CBCharacteristic]) {
-        for identifier in connectedPeripheralIdentifiers {
+        for identifier in [leftPeriphralIdentifier, rightPeripheralIdentifier] {
+            guard let identifier = identifier else {
+                continue
+            }
             if peripheral.identifier.uuidString == identifier {
                 withStoreCharacteristic[identifier] = characteristic
                 peripheral.readValue(for: characteristic)
