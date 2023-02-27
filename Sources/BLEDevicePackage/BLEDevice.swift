@@ -212,7 +212,10 @@ extension BLEDevice: CBCentralManagerDelegate {
         ])
         
         DispatchQueue.main.sync {
-            self.delegate?.didConnect(uuid: peripheral.identifier.uuidString)
+            guard let deviceType = deviceType(fromUUIDString: peripheral.identifier.uuidString) else {
+                return
+            }
+            self.delegate?.didConnect(deviceType: deviceType)
         }
     }
 
@@ -325,9 +328,6 @@ extension BLEDevice: CBPeripheralDelegate {
             }
             if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
-                DispatchQueue.main.sync {
-                    delegate?.didSetNotify()
-                }
             }
         }
     }
@@ -344,43 +344,42 @@ extension BLEDevice: CBPeripheralDelegate {
         if let error = error {
             print(error.localizedDescription)
         }
+        guard let deviceType = deviceType(fromUUIDString: peripheral.identifier.uuidString) else {
+            return
+        }
         if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
             if let data = characteristic.value {
-                if let deviceType = deviceType(fromUUIDString: peripheral.identifier.uuidString) {
-                    updateEEGSignal(data, uuid: peripheral.identifier.uuidString, deviceType: deviceType)
-                }
+                updateEEGSignal(data, uuid: peripheral.identifier.uuidString, deviceType: deviceType)
             }
         }
         if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
             if let data = characteristic.value {
-                if let deviceType = deviceType(fromUUIDString: peripheral.identifier.uuidString) {
-                    updateBattery(data, deviceType: deviceType)
-                }
+                updateBattery(data, deviceType: deviceType)
             }
         }
         if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
             guard let name = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadManufacturerName(uuid: peripheral.identifier.uuidString, name: name) }
+            DispatchQueue.main.sync { self.delegate?.didReadManufacturerName(deviceType: deviceType, name: name) }
         }
         if characteristic.uuid == DeviceUUID.modelNumberCharacteristic.uuid {
             guard let number = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadModelNumber(uuid: peripheral.identifier.uuidString, number: number) }
+            DispatchQueue.main.sync { self.delegate?.didReadModelNumber(deviceType: deviceType, number: number) }
         }
         if characteristic.uuid == DeviceUUID.serialNumberCharacteristic.uuid {
             guard let number = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadSerialNumber(uuid: peripheral.identifier.uuidString, number: number) }
+            DispatchQueue.main.sync { self.delegate?.didReadSerialNumber(deviceType: deviceType, number: number) }
         }
         if characteristic.uuid == DeviceUUID.hardwareRevCharacteristic.uuid {
             guard let rev = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadHardwareRevision(uuid: peripheral.identifier.uuidString, revision: rev) }
+            DispatchQueue.main.sync { self.delegate?.didReadHardwareRevision(deviceType: deviceType, revision: rev) }
         }
         if characteristic.uuid == DeviceUUID.firmwareRevCharacteristic.uuid {
             guard let rev = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadFirmwareRevision(uuid: peripheral.identifier.uuidString, revision: rev) }
+            DispatchQueue.main.sync { self.delegate?.didReadFirmwareRevision(deviceType: deviceType, revision: rev) }
         }
         if characteristic.uuid == DeviceUUID.softwareRevCharacteristic.uuid {
             guard let rev = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadSoftwareRevision(uuid: peripheral.identifier.uuidString, revision: rev) }
+            DispatchQueue.main.sync { self.delegate?.didReadSoftwareRevision(deviceType: deviceType, revision: rev) }
         }
     }
     
