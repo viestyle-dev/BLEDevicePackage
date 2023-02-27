@@ -400,26 +400,6 @@ extension BLEDevice: CBPeripheralDelegate {
         }
     }
     
-    /// バッテリー容量の読み出し
-    private func readBattery(deviceType: DeviceType) {
-        for peripheral in connectedPeripherals {
-            switch deviceType {
-            case .left:
-                guard let identifier = leftPeriphralIdentifier,
-                      let c = batteryCharacteristic[identifier] else {
-                    return
-                }
-                peripheral.readValue(for: c)
-            case .right:
-                guard let identifier = rightPeripheralIdentifier,
-                      let c = batteryCharacteristic[identifier] else {
-                    return
-                }
-                peripheral.readValue(for: c)
-            }
-        }
-    }
-  
     /// Data -> String
     private func convertName(by data: Data?) -> String? {
         guard let data = data else { return nil }
@@ -446,7 +426,6 @@ extension BLEDevice: CBPeripheralDelegate {
                     self.delegate?.didUpdateSensorStatusRight(status: Int32(status))
                 }
             }
-            readBattery(deviceType: deviceType)
         }
 
         DispatchQueue.main.sync {
