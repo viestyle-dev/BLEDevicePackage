@@ -419,9 +419,9 @@ extension BLEDevice: CBPeripheralDelegate {
             DispatchQueue.main.async {
                 switch deviceType {
                 case .left:
-                    self.delegate?.didUpdateSensorStatusLeft(status: status)
+                    self.delegate?.didUpdateSensorStatusLeft(status: Int(status))
                 case .right:
-                    self.delegate?.didUpdateSensorStatusRight(status: status)
+                    self.delegate?.didUpdateSensorStatusRight(status: Int(status))
                 }
             }
         }
@@ -443,9 +443,9 @@ extension BLEDevice: CBPeripheralDelegate {
         DispatchQueue.main.sync {
             switch deviceType {
             case .left:
-                self.delegate?.didUpdateBatteryLeft(percent: batteryPercent)
+                self.delegate?.didUpdateBatteryLeft(percent: Int(batteryPercent))
             case .right:
-                self.delegate?.didUpdateBatteryRight(percent: batteryPercent)
+                self.delegate?.didUpdateBatteryRight(percent: Int(batteryPercent))
             }
         }
     }
