@@ -285,7 +285,6 @@ extension BLEDevice: CBPeripheralDelegate {
                     DeviceUUID.statusCharacteristic.uuid,
                     DeviceUUID.streamCharacteristic.uuid,
                 ], for: service)
-                print("service \(peripheral.identifier.uuidString)")
             }
         }
     }
