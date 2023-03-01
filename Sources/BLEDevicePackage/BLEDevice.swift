@@ -33,6 +33,29 @@ private enum DeviceUUID: String {
     }
 }
 
+/// EEG EarPhone status
+public enum SensorStatus: Int {
+    case connected = 0
+    case leftDisconnected = 1
+    case rightDisconnected = 2
+    case disconnected = 3
+    
+    init(statusNumber: Int) {
+        switch statusNumber {
+        case 0:
+            self = .connected
+        case 1:
+            self = .leftDisconnected
+        case 2:
+            self = .rightDisconnected
+        case 3:
+            self = .disconnected
+        default:
+            self = .disconnected
+        }
+    }
+}
+
 public final class BLEDevice: NSObject {
     public static var shared = BLEDevice()
 
@@ -389,7 +412,7 @@ extension BLEDevice: CBPeripheralDelegate {
     /// 脳波デバイスの装着ステータスを更新 [0 : ok, 1 : left-x, 2 : right-x, 3 : both-x]
     private func handleSensorStatus(status: Int) {
         DispatchQueue.main.sync {
-            self.delegate?.bleDeviceDidUpdateSensor(status: Int(status))
+            self.delegate?.bleDeviceDidUpdateSensor(status: SensorStatus(statusNumber: status))
         }
     }
 
