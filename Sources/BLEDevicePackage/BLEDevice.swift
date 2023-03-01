@@ -152,7 +152,9 @@ extension BLEDevice: CBCentralManagerDelegate {
         }
 
         DispatchQueue.main.sync {
-            self.delegate?.deviceFound(devName: deviceName, mfgID: peripheral.identifier.uuidString, deviceID: peripheral.identifier.uuidString)
+            self.delegate?.bleDeviceDidFindPeripheral(name: deviceName,
+                                                  manufacturerID: peripheral.identifier.uuidString,
+                                                  deviceID: peripheral.identifier.uuidString)
         }
     }
         
@@ -166,14 +168,14 @@ extension BLEDevice: CBCentralManagerDelegate {
         ])
         connectedPeripheral = peripheral
         DispatchQueue.main.sync {
-            self.delegate?.didConnect()
+            self.delegate?.bleDeviceDidConnect()
         }
     }
 
     /// ペリフェラルと接続が解除された
     public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         DispatchQueue.main.sync {
-            self.delegate?.didDisconnect()
+            self.delegate?.bleDeviceDidDisconnect()
         }
 
         connectedPeripheral = nil
@@ -285,7 +287,7 @@ extension BLEDevice: CBPeripheralDelegate {
             if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
                 DispatchQueue.main.sync {
-                    delegate?.didSetNotify()
+                    delegate?.bleDeviceDidSetNotify()
                 }
             }
         }
@@ -314,27 +316,27 @@ extension BLEDevice: CBPeripheralDelegate {
         }
         if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
             guard let name = handleStringData(data: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadManufacturerName(name: name) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadManufacturerName(name: name) }
         }
         if characteristic.uuid == DeviceUUID.modelNumberCharacteristic.uuid {
             guard let number = handleStringData(data: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadModelNumber(number: number) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadModelNumber(number: number) }
         }
         if characteristic.uuid == DeviceUUID.serialNumberCharacteristic.uuid {
             guard let number = handleStringData(data: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadSerialNumber(number: number) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadSerialNumber(number: number) }
         }
         if characteristic.uuid == DeviceUUID.hardwareRevCharacteristic.uuid {
             guard let rev = handleStringData(data: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadHardwareRevision(revision: rev) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadHardwareRevision(revision: rev) }
         }
         if characteristic.uuid == DeviceUUID.firmwareRevCharacteristic.uuid {
             guard let rev = handleStringData(data: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadFirmwareRevision(revision: rev) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadFirmwareRevision(revision: rev) }
         }
         if characteristic.uuid == DeviceUUID.softwareRevCharacteristic.uuid {
             guard let rev = handleStringData(data: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadSoftwareRevision(revision: rev) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadSoftwareRevision(revision: rev) }
         }
     }
     
@@ -360,7 +362,7 @@ extension BLEDevice: CBPeripheralDelegate {
         }
 
         DispatchQueue.main.sync {
-            self.delegate?.eegSampleLefts(leftValues, rights: rightValues)
+            self.delegate?.bleDeviceDidUpdateData(leftValues: leftValues, rightValues: rightValues)
         }
     }
 
@@ -380,14 +382,14 @@ extension BLEDevice: CBPeripheralDelegate {
         }
         let batteryPercent = data.encodedUInt8[0]
         DispatchQueue.main.sync {
-            self.delegate?.battery(Int32(batteryPercent))
+            self.delegate?.bleDeviceDidUpdateBattery(percent: Int(batteryPercent))
         }
     }
 
     /// 脳波デバイスの装着ステータスを更新 [0 : ok, 1 : left-x, 2 : right-x, 3 : both-x]
     private func handleSensorStatus(status: Int) {
         DispatchQueue.main.sync {
-            self.delegate?.sensorStatus(Int32(status))
+            self.delegate?.bleDeviceDidUpdateSensor(status: Int(status))
         }
     }
 
