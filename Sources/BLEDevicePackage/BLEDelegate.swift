@@ -12,9 +12,9 @@ public protocol BLEDelegate: AnyObject {
     func bleDeviceDidFindPeripheral(name: String, manufacturerID: String, deviceID: String)
     func bleDeviceDidConnect()
     func bleDeviceDidDisconnect()
-    func bleDeviceDidUpdateData(leftValues: [Int16], rightValues: [Int16])
-    func bleDeviceDidUpdateSensor(status: SensorStatus)
-    func bleDeviceDidUpdateBattery(percent: Int)
+    func bleDeviceDidUpdate(leftSamples: [Int16], rightSamples: [Int16])
+    func bleDeviceDidUpdate(sensorStatus: SensorStatus)
+    func bleDeviceDidUpdate(batteryPercentage: Int)
     
     func bleDeviceDidSetNotify()
     func bleDeviceDidReadManufacturerName(name: String)

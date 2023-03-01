@@ -385,7 +385,7 @@ extension BLEDevice: CBPeripheralDelegate {
         }
 
         DispatchQueue.main.sync {
-            self.delegate?.bleDeviceDidUpdateData(leftValues: leftValues, rightValues: rightValues)
+            self.delegate?.bleDeviceDidUpdate(leftSamples: leftValues, rightSamples: rightValues)
         }
     }
 
@@ -405,14 +405,14 @@ extension BLEDevice: CBPeripheralDelegate {
         }
         let batteryPercent = data.encodedUInt8[0]
         DispatchQueue.main.sync {
-            self.delegate?.bleDeviceDidUpdateBattery(percent: Int(batteryPercent))
+            self.delegate?.bleDeviceDidUpdate(batteryPercentage: Int(batteryPercent))
         }
     }
 
     /// 脳波デバイスの装着ステータスを更新 [0 : ok, 1 : left-x, 2 : right-x, 3 : both-x]
     private func handleSensorStatus(status: Int) {
         DispatchQueue.main.sync {
-            self.delegate?.bleDeviceDidUpdateSensor(status: SensorStatus(statusNumber: status))
+            self.delegate?.bleDeviceDidUpdate(sensorStatus: SensorStatus(statusNumber: status))
         }
     }
 
