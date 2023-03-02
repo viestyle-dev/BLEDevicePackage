@@ -34,24 +34,42 @@ private enum DeviceUUID: String {
 }
 
 /// EEG EarPhone status
-public enum SensorStatus: Int {
-    case connected = 0
-    case leftDisconnected = 1
-    case rightDisconnected = 2
-    case disconnected = 3
+public enum WearingStatus: Int {
+    case well
+    case leftLost
+    case rightLost
+    case bothLost
     
     init(statusNumber: Int) {
         switch statusNumber {
         case 0:
-            self = .connected
+            self = .well
         case 1:
-            self = .leftDisconnected
+            self = .leftLost
         case 2:
-            self = .rightDisconnected
+            self = .rightLost
         case 3:
-            self = .disconnected
+            self = .bothLost
         default:
-            self = .disconnected
+            self = .bothLost
+        }
+    }
+
+    var isLeftSensing: Bool {
+        switch self {
+        case .well, .rightLost:
+            return true
+        case .leftLost, .bothLost:
+            return false
+        }
+    }
+
+    var isRightSensing: Bool {
+        switch self {
+        case .well, .leftLost:
+            return true
+        case .rightLost, .bothLost:
+            return false
         }
     }
 }
@@ -412,7 +430,7 @@ extension BLEDevice: CBPeripheralDelegate {
     /// 脳波デバイスの装着ステータスを更新 [0 : ok, 1 : left-x, 2 : right-x, 3 : both-x]
     private func handleSensorStatus(status: Int) {
         DispatchQueue.main.sync {
-            self.delegate?.bleDeviceDidUpdate(sensorStatus: SensorStatus(statusNumber: status))
+            self.delegate?.bleDeviceDidUpdate(wearingStatus: WearingStatus(statusNumber: status))
         }
     }
 
