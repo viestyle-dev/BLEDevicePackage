@@ -33,6 +33,47 @@ private enum DeviceUUID: String {
     }
 }
 
+/// EEG EarPhone status
+public enum WearingStatus: Int {
+    case well
+    case leftLost
+    case rightLost
+    case bothLost
+    
+    init(statusNumber: Int) {
+        switch statusNumber {
+        case 0:
+            self = .well
+        case 1:
+            self = .leftLost
+        case 2:
+            self = .rightLost
+        case 3:
+            self = .bothLost
+        default:
+            self = .bothLost
+        }
+    }
+
+    var isLeftSensing: Bool {
+        switch self {
+        case .well, .rightLost:
+            return true
+        case .leftLost, .bothLost:
+            return false
+        }
+    }
+
+    var isRightSensing: Bool {
+        switch self {
+        case .well, .leftLost:
+            return true
+        case .rightLost, .bothLost:
+            return false
+        }
+    }
+}
+
 /// For Two BLE Example
 public enum DeviceType {
     case left
@@ -198,7 +239,10 @@ extension BLEDevice: CBCentralManagerDelegate {
         }
 
         DispatchQueue.main.sync {
-            self.delegate?.didFindDevice(name: deviceName, deviceID: peripheral.identifier.uuidString)
+            self.delegate?.bleDeviceDidFindPeripheral(
+                name: deviceName,
+                manufacturerID: peripheral.identifier.uuidString,
+                deviceID: peripheral.identifier.uuidString)
         }
     }
         
@@ -215,14 +259,14 @@ extension BLEDevice: CBCentralManagerDelegate {
             guard let deviceType = deviceType(fromUUIDString: peripheral.identifier.uuidString) else {
                 return
             }
-            self.delegate?.didConnect(deviceType: deviceType)
+            self.delegate?.bleDeviceDidConnect(deviceType: deviceType)
         }
     }
 
     /// ペリフェラルと接続が解除された
     public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         DispatchQueue.main.sync {
-            self.delegate?.didDisconnect()
+            self.delegate?.bleDeviceDidDisconnect()
         }
 
         leftPeriphralIdentifier = nil
@@ -358,27 +402,27 @@ extension BLEDevice: CBPeripheralDelegate {
         }
         if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
             guard let name = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadManufacturerName(deviceType: deviceType, name: name) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadManufacturerName(deviceType: deviceType, name: name) }
         }
         if characteristic.uuid == DeviceUUID.modelNumberCharacteristic.uuid {
             guard let number = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadModelNumber(deviceType: deviceType, number: number) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadModelNumber(deviceType: deviceType, number: number) }
         }
         if characteristic.uuid == DeviceUUID.serialNumberCharacteristic.uuid {
             guard let number = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadSerialNumber(deviceType: deviceType, number: number) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadSerialNumber(deviceType: deviceType, number: number) }
         }
         if characteristic.uuid == DeviceUUID.hardwareRevCharacteristic.uuid {
             guard let rev = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadHardwareRevision(deviceType: deviceType, revision: rev) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadHardwareRevision(deviceType: deviceType, revision: rev) }
         }
         if characteristic.uuid == DeviceUUID.firmwareRevCharacteristic.uuid {
             guard let rev = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadFirmwareRevision(deviceType: deviceType, revision: rev) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadFirmwareRevision(deviceType: deviceType, revision: rev) }
         }
         if characteristic.uuid == DeviceUUID.softwareRevCharacteristic.uuid {
             guard let rev = convertName(by: characteristic.value) else { return }
-            DispatchQueue.main.sync { self.delegate?.didReadSoftwareRevision(deviceType: deviceType, revision: rev) }
+            DispatchQueue.main.sync { self.delegate?.bleDeviceDidReadSoftwareRevision(deviceType: deviceType, revision: rev) }
         }
     }
     
@@ -419,9 +463,9 @@ extension BLEDevice: CBPeripheralDelegate {
             DispatchQueue.main.async {
                 switch deviceType {
                 case .left:
-                    self.delegate?.didUpdateSensorStatusLeft(status: Int(status))
+                    self.delegate?.bleDeviceDidUpdateLeft(wearingStatus: WearingStatus(statusNumber: Int(status)))
                 case .right:
-                    self.delegate?.didUpdateSensorStatusRight(status: Int(status))
+                    self.delegate?.bleDeviceDidUpdateRight(wearingStatus: WearingStatus(statusNumber: Int(status)))
                 }
             }
         }
@@ -429,9 +473,9 @@ extension BLEDevice: CBPeripheralDelegate {
         DispatchQueue.main.sync {
             switch deviceType {
             case .left:
-                self.delegate?.didUpdateEEGLeft(values: leftValues)
+                self.delegate?.bleDeviceDidUpdateLeft(samples: leftValues)
             case .right:
-                self.delegate?.didUpdateEEGRight(values: rightValues)
+                self.delegate?.bleDeviceDidUpdateRight(samples: rightValues)
             }
         }
     }
@@ -443,9 +487,9 @@ extension BLEDevice: CBPeripheralDelegate {
         DispatchQueue.main.sync {
             switch deviceType {
             case .left:
-                self.delegate?.didUpdateBatteryLeft(percent: Int(batteryPercent))
+                self.delegate?.bleDeviceDidUpdateLeft(batteryPercentage: Int(batteryPercent))
             case .right:
-                self.delegate?.didUpdateBatteryRight(percent: Int(batteryPercent))
+                self.delegate?.bleDeviceDidUpdateRight(batteryPercentage: Int(batteryPercent))
             }
         }
     }
