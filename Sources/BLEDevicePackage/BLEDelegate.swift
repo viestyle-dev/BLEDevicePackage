@@ -9,24 +9,32 @@ import CoreBluetooth
 import Foundation
 
 public protocol BLEDelegate: AnyObject {
-    func deviceFound(devName: String, mfgID: String, deviceID: String)
-    func didConnect()
-    func didDisconnect()
-    func didSetNotify()
-    func didReadManufacturerName(name: String)
-    func didReadModelNumber(number: String)
-    func didReadSerialNumber(number: String)
-    func didReadHardwareRevision(revision: String)
-    func didReadFirmwareRevision(revision: String)
-    func didReadSoftwareRevision(revision: String)
-    func eegSampleLefts(_ lefts: [Int16], rights: [Int16])
-    func sensorStatus(_ status: Int32)
-    func battery(_ percent: Int32)
+    func bleDeviceDidFindPeripheral(name: String, manufacturerID: String, deviceID: String)
+    func bleDeviceDidConnect()
+    func bleDeviceDidDisconnect()
+    func bleDeviceDidUpdate(leftSamples: [Int16], rightSamples: [Int16])
+    func bleDeviceDidUpdate(wearingStatus: WearingStatus)
+    func bleDeviceDidUpdate(batteryPercentage: Int)
+    
+    func bleDeviceDidSetNotify()
+    func bleDeviceDidReadManufacturerName(name: String)
+    func bleDeviceDidReadModelNumber(number: String)
+    func bleDeviceDidReadSerialNumber(number: String)
+    func bleDeviceDidReadHardwareRevision(revision: String)
+    func bleDeviceDidReadFirmwareRevision(revision: String)
+    func bleDeviceDidReadSoftwareRevision(revision: String)
     func centralManagerDidUpdateState(_ central: CBCentralManager)
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?)
 }
 
 public extension BLEDelegate {
+    func bleDeviceDidSetNotify() {}
+    func bleDeviceDidReadManufacturerName(name: String) {}
+    func bleDeviceDidReadModelNumber(number: String) {}
+    func bleDeviceDidReadSerialNumber(number: String) {}
+    func bleDeviceDidReadHardwareRevision(revision: String) {}
+    func bleDeviceDidReadFirmwareRevision(revision: String) {}
+    func bleDeviceDidReadSoftwareRevision(revision: String) {}
     func centralManagerDidUpdateState(_ central: CBCentralManager) {}
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {}
 }
