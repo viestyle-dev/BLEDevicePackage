@@ -55,7 +55,7 @@ public enum WearingStatus: Int {
         }
     }
 
-    var isLeftSensing: Bool {
+    public var isLeftSensing: Bool {
         switch self {
         case .well, .rightLost:
             return true
@@ -64,7 +64,7 @@ public enum WearingStatus: Int {
         }
     }
 
-    var isRightSensing: Bool {
+    public var isRightSensing: Bool {
         switch self {
         case .well, .leftLost:
             return true
