@@ -27,7 +27,7 @@ private enum DeviceUUID: String {
     case modeCharacteristic = "0B79FFA0-1ED1-2840-A9C3-87C6F6186DB3" // Write
     case statusCharacteristic = "0B79FFB0-1ED1-2840-A9C3-87C6F6186DB3" // Notify
     case streamCharacteristic = "0B79FFF6-1ED1-2840-A9C3-87C6F6186DB3" // Notify
-
+    
     var uuid: CBUUID {
         CBUUID(string: rawValue)
     }
@@ -54,7 +54,7 @@ public enum WearingStatus: Int {
             self = .bothLost
         }
     }
-
+    
     public var isLeftSensing: Bool {
         switch self {
         case .well, .rightLost:
@@ -63,7 +63,7 @@ public enum WearingStatus: Int {
             return false
         }
     }
-
+    
     public var isRightSensing: Bool {
         switch self {
         case .well, .leftLost:
@@ -100,12 +100,12 @@ public final class BLEDevice: NSObject {
     private var isBothDeviceConnected: Bool {
         return isConnectedLeftDevice && isConnectedRightDevice
     }
-
+    
     // 接続されたペリフェラル
     private var connectedPeripherals = [CBPeripheral]()
     private var leftPeriphralIdentifier: String?
     private var rightPeripheralIdentifier: String?
-
+    
     private var modeCharacteristic = [String: CBCharacteristic]()
     private var batteryCharacteristic = [String: CBCharacteristic]()
     private var manufacturerNameCharacteristic = [String: CBCharacteristic]()
@@ -132,24 +132,24 @@ public final class BLEDevice: NSObject {
     
     override private init() {
         queue = DispatchQueue(label: "BLEDevice.bleQueue")
-
+        
         super.init()
-
+        
         centralManager = CBCentralManager(delegate: self, queue: queue)
     }
-
+    
     // MARK: - Actions
     /// スキャン開始
     public func scanDevice() {
         let services = [DeviceUUID.deviceInfoService.uuid]
         centralManager.scanForPeripherals(withServices: services, options: nil)
     }
-
+    
     /// スキャン停止
     public func stopScanDevice() {
         centralManager.stopScan()
     }
-
+    
     /// 接続
     public func connect(_ deviceID: String, deviceType: DeviceType) {
         switch deviceType {
@@ -179,7 +179,7 @@ public final class BLEDevice: NSObject {
             )
         }
     }
-
+    
     /// 接続を解除
     public func disconnectDevice() {
         for peripheral in connectedPeripherals {
@@ -203,7 +203,7 @@ public final class BLEDevice: NSObject {
         isConnectedLeftDevice = false
         isConnectedRightDevice = false
     }
-
+    
     /// 脳波の検出を開始
     public func start() {
         for peripheral in connectedPeripherals {
@@ -213,7 +213,7 @@ public final class BLEDevice: NSObject {
             peripheral.writeValue(Data(self.startBytes), for: c, type: .withResponse)
         }
     }
-
+    
     /// 脳波の検出を停止
     public func stop() {
         for peripheral in connectedPeripherals {
@@ -228,7 +228,7 @@ public final class BLEDevice: NSObject {
     public func setDelegate(delegate: BLEDelegate) {
         self.delegate = delegate
     }
-
+    
     func deviceType(fromUUIDString uuid: String) -> DeviceType? {
         guard let leftPeriphralIdentifier = leftPeriphralIdentifier,
               let rightPeripheralIdentifier = rightPeripheralIdentifier else {
@@ -260,7 +260,7 @@ extension BLEDevice: CBCentralManagerDelegate {
         guard let deviceName = peripheral.name else {
             return
         }
-
+        
         DispatchQueue.main.sync {
             self.delegate?.bleDeviceDidFindPeripheral(
                 name: deviceName,
@@ -268,7 +268,7 @@ extension BLEDevice: CBCentralManagerDelegate {
                 deviceID: peripheral.identifier.uuidString)
         }
     }
-        
+    
     /// ペリフェラルに接続された
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         peripheral.delegate = self
@@ -285,24 +285,24 @@ extension BLEDevice: CBCentralManagerDelegate {
             self.delegate?.bleDeviceDidConnect(deviceType: deviceType)
         }
     }
-
+    
     /// ペリフェラルと接続が解除された
     public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         DispatchQueue.main.sync {
             self.delegate?.bleDeviceDidDisconnect()
         }
-
+        
         leftPeriphralIdentifier = nil
         rightPeripheralIdentifier = nil
     }
-
+    
     /// ペリフェラルとの接続に失敗した
     public func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         DispatchQueue.main.sync {
             self.delegate?.centralManager(central, didFailToConnect: peripheral, error: error)
         }
     }
-
+    
     /// 状態が変化した
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
         DispatchQueue.main.sync {
@@ -328,7 +328,7 @@ extension BLEDevice: CBPeripheralDelegate {
             print("Error discovering services: %s", error.localizedDescription)
             return
         }
-
+        
         guard let peripheralServices = peripheral.services else { return }
         for service in peripheralServices {
             if service.uuid == DeviceUUID.deviceInfoService.uuid {
@@ -355,7 +355,7 @@ extension BLEDevice: CBPeripheralDelegate {
             }
         }
     }
-
+    
     /// キャラクタリスティックを発見した
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         if let error = error {
@@ -392,7 +392,7 @@ extension BLEDevice: CBPeripheralDelegate {
                 peripheral.setNotifyValue(true, for: characteristic)
             }
             if characteristic.uuid == DeviceUUID.modeCharacteristic.uuid {
-                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &modeCharacteristic, deviceType: deviceType)
+                setValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &modeCharacteristic, deviceType: deviceType)
             }
             if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
@@ -403,14 +403,14 @@ extension BLEDevice: CBPeripheralDelegate {
             }
         }
     }
-
+    
     /// connectした時の呼ばれる
     public func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
         if let error = error {
             print(error.localizedDescription)
         }
     }
-
+    
     /// Notify属性の値更新時に呼ばれる(ここの脳波データをハンドリング)
     public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         if let error = error {
@@ -456,6 +456,29 @@ extension BLEDevice: CBPeripheralDelegate {
     }
     
     // MARK: - Utils
+    /// キャラクタリスティックを保持する(ModeCharacteristic用)
+    private func setValue(fromPeripheral peripheral: CBPeripheral,
+                          by characteristic: CBCharacteristic,
+                          withStoreCharacteristic: inout [String: CBCharacteristic],
+                          deviceType: DeviceType
+    ) {
+        switch deviceType {
+        case .left:
+            guard let identifier = leftPeriphralIdentifier else {
+                return
+            }
+            if peripheral.identifier.uuidString == identifier {
+                withStoreCharacteristic[identifier] = characteristic
+            }
+        case .right:
+            guard let identifier = rightPeripheralIdentifier else {
+                return
+            }
+            if peripheral.identifier.uuidString == identifier {
+                withStoreCharacteristic[identifier] = characteristic
+            }
+        }
+    }
     /// BLEデバイスから値を呼んで、キャラクタリスティックを保持
     private func readValue(fromPeripheral peripheral: CBPeripheral,
                            by characteristic: CBCharacteristic,
@@ -510,7 +533,7 @@ extension BLEDevice: CBPeripheralDelegate {
         default: return 3
         }
     }
-
+    
     /// 脳波データを送信
     private func updateEEGSignal(_ data: Data, uuid: String, deviceType: DeviceType) {
         let index: UInt8 = data[0]
@@ -519,7 +542,7 @@ extension BLEDevice: CBPeripheralDelegate {
         let rightData = data[42 ... data.count - 1]
         let leftValues = leftData.encodedInt16
         let rightValues = rightData.encodedInt16
-
+        
         // 1秒ごとにステータスを送信
         // 脳波デバイスの装着ステータスを更新 [0 : ok, 1 : left-x, 2 : right-x, 3 : both-x]
         if index == 0 {
@@ -539,13 +562,13 @@ extension BLEDevice: CBPeripheralDelegate {
                 }
             }
         }
-
+        
         switch deviceType {
         case .left:
             self.currentLeftEEGSample = leftValues
         case .right:
             self.currentRightEEGSample = rightValues
-                // 右耳のイヤホンを更新時に両方のデータを送信する
+            // 右耳のイヤホンを更新時に両方のデータを送信する
             if let currentLeftEEGSample = currentLeftEEGSample,
                let currentRightEEGSample = currentRightEEGSample {
                 self.delegate?.bleDeviceDidUpdate(
@@ -555,7 +578,7 @@ extension BLEDevice: CBPeripheralDelegate {
             }
         }
     }
-
+    
     /// バッテリー容量の読み出しのコールバック
     private func updateBattery(_ data: Data, deviceType: DeviceType) {
         let batteryPercent = data.encodedUInt8[0]
@@ -581,7 +604,7 @@ private extension Data {
             Array($0.bindMemory(to: UInt8.self)).map(UInt8.init(bigEndian:))
         }
     }
-
+    
     /// Data to [Int16]
     var encodedInt16: [Int16] {
         withUnsafeBytes {
