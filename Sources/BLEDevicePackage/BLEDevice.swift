@@ -276,10 +276,7 @@ extension BLEDevice: CBCentralManagerDelegate {
             DeviceUUID.deviceInfoService.uuid
         ])
         
-        guard let deviceType = deviceType(fromUUIDString: peripheral.identifier.uuidString) else {
-            return
-        }
-        delegate?.bleDeviceDidConnect(deviceType: deviceType)
+        delegate?.bleDeviceDidConnect()
     }
     
     /// ペリフェラルと接続が解除された

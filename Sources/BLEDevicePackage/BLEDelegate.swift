@@ -10,7 +10,7 @@ import Foundation
 
 public protocol BLEDelegate: AnyObject {
     func bleDeviceDidFindPeripheral(name: String, manufacturerID: String, deviceID: String)
-    func bleDeviceDidConnect(deviceType: DeviceType)
+    func bleDeviceDidConnect()
     func bleDeviceDidDisconnect()
     func bleDeviceDidUpdate(leftSamples: [Int16], rightSamples: [Int16])
     func bleDeviceDidUpdate(wearingStatus: WearingStatus)
