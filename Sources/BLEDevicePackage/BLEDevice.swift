@@ -82,12 +82,24 @@ public enum DeviceType {
 
 public final class BLEDevice: NSObject {
     public static var shared = BLEDevice()
-
+    
     private weak var delegate: BLEDelegate?
-
+    
     private var centralManager: CBCentralManager!
     
     private let queue: DispatchQueue
+    
+    private var currentLeftEEGSample: [Int16]?
+    private var currentRightEEGSample: [Int16]?
+    private var currentLeftStatus: Int?
+    private var currentRightStatus: Int?
+    private var currentLeftBattery: Int?
+    private var currentRightBattery: Int?
+    private var isConnectedLeftDevice: Bool = false
+    private var isConnectedRightDevice: Bool = false
+    private var isBothDeviceConnected: Bool {
+        return isConnectedLeftDevice && isConnectedRightDevice
+    }
 
     // 接続されたペリフェラル
     private var connectedPeripherals = [CBPeripheral]()
@@ -188,6 +200,8 @@ public final class BLEDevice: NSObject {
         connectedPeripherals.removeAll()
         leftPeriphralIdentifier = nil
         rightPeripheralIdentifier = nil
+        isConnectedLeftDevice = false
+        isConnectedRightDevice = false
     }
 
     /// 脳波の検出を開始
@@ -227,6 +241,15 @@ public final class BLEDevice: NSObject {
             return .right
         }
         return nil
+    }
+    
+    private func setIsDeviceConnected(deviceType: DeviceType) {
+        switch deviceType {
+        case .left:
+            isConnectedLeftDevice = true
+        case .right:
+            isConnectedRightDevice = true
+        }
     }
 }
 
@@ -339,38 +362,44 @@ extension BLEDevice: CBPeripheralDelegate {
             print("Error discovering characteristics: %s", error.localizedDescription)
             return
         }
-
+        guard let deviceType = deviceType(fromUUIDString: peripheral.identifier.uuidString) else {
+            return
+        }
         guard let serviceCharacteristics = service.characteristics else { return }
         for characteristic in serviceCharacteristics {
             if characteristic.uuid == DeviceUUID.manufacturerCharacteristic.uuid {
-                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &manufacturerNameCharacteristic)
+                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &manufacturerNameCharacteristic, deviceType: deviceType)
             }
             if characteristic.uuid == DeviceUUID.modelNumberCharacteristic.uuid {
-                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &modelNumberCharacteristic)
+                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &modelNumberCharacteristic, deviceType: deviceType)
             }
             if characteristic.uuid == DeviceUUID.serialNumberCharacteristic.uuid {
-                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &serialNumberCharacteristic)
+                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &serialNumberCharacteristic, deviceType: deviceType)
             }
             if characteristic.uuid == DeviceUUID.hardwareRevCharacteristic.uuid {
-                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &hardwareRevisionCharacteristic)
+                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &hardwareRevisionCharacteristic, deviceType: deviceType)
             }
             if characteristic.uuid == DeviceUUID.firmwareRevCharacteristic.uuid {
-                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &firmwareRevisionCharacteristic)
+                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &firmwareRevisionCharacteristic, deviceType: deviceType)
             }
             if characteristic.uuid == DeviceUUID.softwareRevCharacteristic.uuid {
-                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &softwareRevisionCharacteristic)
+                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &softwareRevisionCharacteristic, deviceType: deviceType)
             }
             if characteristic.uuid == DeviceUUID.batteryCharacteristic.uuid {
-                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &batteryCharacteristic)
+                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &batteryCharacteristic, deviceType: deviceType)
             }
             if characteristic.uuid == DeviceUUID.statusCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
             }
             if characteristic.uuid == DeviceUUID.modeCharacteristic.uuid {
-                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &modeCharacteristic)
+                readValue(fromPeripheral: peripheral, by: characteristic, withStoreCharacteristic: &modeCharacteristic, deviceType: deviceType)
             }
             if characteristic.uuid == DeviceUUID.streamCharacteristic.uuid {
                 peripheral.setNotifyValue(true, for: characteristic)
+                setIsDeviceConnected(deviceType: deviceType)
+                if isBothDeviceConnected {
+                    delegate?.bleDeviceDidSetNotify()
+                }
             }
         }
     }
@@ -430,10 +459,21 @@ extension BLEDevice: CBPeripheralDelegate {
     /// BLEデバイスから値を呼んで、キャラクタリスティックを保持
     private func readValue(fromPeripheral peripheral: CBPeripheral,
                            by characteristic: CBCharacteristic,
-                           withStoreCharacteristic: inout [String: CBCharacteristic]) {
-        for identifier in [leftPeriphralIdentifier, rightPeripheralIdentifier] {
-            guard let identifier = identifier else {
-                continue
+                           withStoreCharacteristic: inout [String: CBCharacteristic],
+                           deviceType: DeviceType
+    ) {
+        switch deviceType {
+        case .left:
+            guard let identifier = leftPeriphralIdentifier else {
+                return
+            }
+            if peripheral.identifier.uuidString == identifier {
+                withStoreCharacteristic[identifier] = characteristic
+                peripheral.readValue(for: characteristic)
+            }
+        case .right:
+            guard let identifier = rightPeripheralIdentifier else {
+                return
             }
             if peripheral.identifier.uuidString == identifier {
                 withStoreCharacteristic[identifier] = characteristic
@@ -446,6 +486,29 @@ extension BLEDevice: CBPeripheralDelegate {
     private func convertName(by data: Data?) -> String? {
         guard let data = data else { return nil }
         return String(data: data, encoding: .utf8)
+    }
+    
+    // 脳波デバイスの装着ステータスを更新 [0: ok, 1: left-x, 2: right-x, 3: both-x]
+    private func convertStatus(leftStatus: Int, rightStatus: Int) -> Int {
+        switch (leftStatus, rightStatus) {
+        case (0, 0): return 0
+        case (0, 1): return 0
+        case (0, 2): return 2
+        case (0, 3): return 2
+        case (1, 0): return 1
+        case (1, 1): return 1
+        case (1, 2): return 3
+        case (1, 3): return 3
+        case (2, 0): return 0
+        case (2, 1): return 0
+        case (2, 2): return 2
+        case (2, 3): return 2
+        case (3, 0): return 1
+        case (3, 1): return 1
+        case (3, 2): return 3
+        case (3, 3): return 3
+        default: return 3
+        }
     }
 
     /// 脳波データを送信
@@ -460,36 +523,52 @@ extension BLEDevice: CBPeripheralDelegate {
         // 1秒ごとにステータスを送信
         // 脳波デバイスの装着ステータスを更新 [0 : ok, 1 : left-x, 2 : right-x, 3 : both-x]
         if index == 0 {
-            DispatchQueue.main.async {
-                switch deviceType {
-                case .left:
-                    self.delegate?.bleDeviceDidUpdateLeft(wearingStatus: WearingStatus(statusNumber: Int(status)))
-                case .right:
-                    self.delegate?.bleDeviceDidUpdateRight(wearingStatus: WearingStatus(statusNumber: Int(status)))
+            switch deviceType {
+            case .left:
+                self.currentLeftStatus = Int(status)
+            case .right:
+                self.currentRightStatus = Int(status)
+                // 右耳のイヤホンを更新時に両方のデータを送信する
+                if let currentLeftStatus = self.currentLeftStatus,
+                   let currentRightStatus = self.currentRightStatus {
+                    let bothStatus: Int = convertStatus(
+                        leftStatus: currentLeftStatus,
+                        rightStatus: currentRightStatus
+                    )
+                    self.delegate?.bleDeviceDidUpdate(wearingStatus: WearingStatus(statusNumber: bothStatus))
                 }
             }
         }
 
-        DispatchQueue.main.sync {
-            switch deviceType {
-            case .left:
-                self.delegate?.bleDeviceDidUpdateLeft(samples: leftValues)
-            case .right:
-                self.delegate?.bleDeviceDidUpdateRight(samples: rightValues)
+        switch deviceType {
+        case .left:
+            self.currentLeftEEGSample = leftValues
+        case .right:
+            self.currentRightEEGSample = rightValues
+                // 右耳のイヤホンを更新時に両方のデータを送信する
+            if let currentLeftEEGSample = currentLeftEEGSample,
+               let currentRightEEGSample = currentRightEEGSample {
+                self.delegate?.bleDeviceDidUpdate(
+                    leftSamples: currentLeftEEGSample,
+                    rightSamples: currentRightEEGSample
+                )
             }
         }
     }
 
-
     /// バッテリー容量の読み出しのコールバック
     private func updateBattery(_ data: Data, deviceType: DeviceType) {
         let batteryPercent = data.encodedUInt8[0]
-        DispatchQueue.main.sync {
-            switch deviceType {
-            case .left:
-                self.delegate?.bleDeviceDidUpdateLeft(batteryPercentage: Int(batteryPercent))
-            case .right:
-                self.delegate?.bleDeviceDidUpdateRight(batteryPercentage: Int(batteryPercent))
+        switch deviceType {
+        case .left:
+            currentLeftBattery = Int(batteryPercent)
+        case .right:
+            currentRightBattery = Int(batteryPercent)
+            // 右耳のイヤホンを更新時に両方のデータを送信する
+            if let currentLeftBattery = currentLeftBattery,
+               let currentRightBattery = currentRightBattery {
+                self.delegate?.bleDeviceDidUpdate(leftBattery: currentLeftBattery,
+                                                  rightBattery: currentRightBattery)
             }
         }
     }
