@@ -14,7 +14,7 @@ public protocol BLEDelegate: AnyObject {
     func bleDeviceDidDisconnect()
     func bleDeviceDidUpdate(leftSamples: [Int16], rightSamples: [Int16])
     func bleDeviceDidUpdate(wearingStatus: WearingStatus)
-    func bleDeviceDidUpdate(leftBattery: Int, rightBattery: Int)
+    func bleDeviceDidUpdate(leftBattery: Int?, rightBattery: Int?)
     func bleDeviceDidSetNotify()
     
     func bleDeviceDidReadManufacturerName(deviceType: DeviceType, name: String)

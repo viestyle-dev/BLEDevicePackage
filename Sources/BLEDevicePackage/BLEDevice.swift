@@ -158,18 +158,14 @@ public final class BLEDevice: NSObject {
         case .right:
             rightPeripheralIdentifier = deviceID
         }
-        
-        guard let leftUUIDString = leftPeriphralIdentifier else {
+        let uuidStrings = [leftPeriphralIdentifier, rightPeripheralIdentifier].compactMap { $0 }
+        if uuidStrings.isEmpty {
             return
         }
-        
-        guard let rightUUIDString = rightPeripheralIdentifier else {
+        let uuids = uuidStrings.map { UUID(uuidString: $0) }.compactMap { $0 }
+        if uuids.isEmpty {
             return
         }
-        
-        let uuidStrings = [leftUUIDString, rightUUIDString]
-        let uuids = uuidStrings.map { UUID(uuidString: $0)! }
-        
         // CBPeripheralは強参照で保持する必要がある(保持しないとエラーを送出して、データを取得できない)
         connectedPeripherals = centralManager.retrievePeripherals(withIdentifiers: uuids)
         for peripheral in connectedPeripherals {
@@ -230,11 +226,6 @@ public final class BLEDevice: NSObject {
     }
     
     func deviceType(fromUUIDString uuid: String) -> DeviceType? {
-        guard let leftPeriphralIdentifier = leftPeriphralIdentifier,
-              let rightPeripheralIdentifier = rightPeripheralIdentifier else {
-            return nil
-        }
-        
         if uuid == leftPeriphralIdentifier {
             return .left
         } else if uuid == rightPeripheralIdentifier {
@@ -570,17 +561,12 @@ extension BLEDevice: CBPeripheralDelegate {
     private func updateBattery(_ data: Data, deviceType: DeviceType) {
         let batteryPercent = data.encodedUInt8[0]
         switch deviceType {
-        case .left:
-            currentLeftBattery = Int(batteryPercent)
-        case .right:
-            currentRightBattery = Int(batteryPercent)
-            // 右耳のイヤホンを更新時に両方のデータを送信する
-            if let currentLeftBattery = currentLeftBattery,
-               let currentRightBattery = currentRightBattery {
-                self.delegate?.bleDeviceDidUpdate(leftBattery: currentLeftBattery,
-                                                  rightBattery: currentRightBattery)
+            case .left:
+                currentLeftBattery = Int(batteryPercent)
+            case .right:
+                currentRightBattery = Int(batteryPercent)
             }
-        }
+        delegate?.bleDeviceDidUpdate(leftBattery: currentLeftBattery, rightBattery: currentRightBattery)
     }
 }
 
