@@ -138,15 +138,16 @@ public final class BLEDevice: NSObject {
     }
 
     /// 接続
-    public func connect(_ deviceID: String) {
+    public func connect(_ deviceID: String, enableMusicPlaybackWithClassicBluetooth: Bool = true) {
         guard let lastUUID = UUID(uuidString: deviceID),
               let peripheral = centralManager.retrievePeripherals(withIdentifiers: [lastUUID]).first else {
             return
         }
         // 強参照が必要なのでプロパティとして保持
         connectedPeripheral = peripheral
-        centralManager.connect(peripheral,
-                               options: [CBConnectPeripheralOptionEnableTransportBridgingKey: true])
+        centralManager.connect(
+            peripheral,
+            options: [CBConnectPeripheralOptionEnableTransportBridgingKey: enableMusicPlaybackWithClassicBluetooth])
     }
 
     /// 接続を解除
