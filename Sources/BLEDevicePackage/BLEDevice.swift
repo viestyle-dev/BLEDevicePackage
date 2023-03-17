@@ -151,7 +151,7 @@ public final class BLEDevice: NSObject {
     }
     
     /// 接続
-    public func connect(_ deviceID: String, deviceType: DeviceType) {
+    public func connect(_ deviceID: String, deviceType: DeviceType, enableMusicPlaybackWithClassicBluetooth: Bool = true) {
         switch deviceType {
         case .left:
             leftPeriphralIdentifier = deviceID
@@ -171,7 +171,7 @@ public final class BLEDevice: NSObject {
         for peripheral in connectedPeripherals {
             centralManager.connect(
                 peripheral,
-                options: [CBConnectPeripheralOptionEnableTransportBridgingKey: true]
+                options: [CBConnectPeripheralOptionEnableTransportBridgingKey: enableMusicPlaybackWithClassicBluetooth]
             )
         }
     }
