@@ -489,21 +489,22 @@ extension BLEDevice: CBPeripheralDelegate {
         return String(data: data, encoding: .utf8)
     }
     
-    // 脳波デバイスの装着ステータスを更新 [0: ok, 1: left-x, 2: right-x, 3: both-x]
+    /// 脳波デバイスの装着ステータスを更新 [0: ok, 1: left-x, 2: right-x, 3: both-x]
+    /// デモ機の設定上左右のデバイスどちらも右(R)チャンネルを利用
     private func convertStatus(leftStatus: Int, rightStatus: Int) -> Int {
         switch (leftStatus, rightStatus) {
         case (0, 0): return 0
         case (0, 1): return 0
         case (0, 2): return 2
         case (0, 3): return 2
-        case (1, 0): return 1
-        case (1, 1): return 1
-        case (1, 2): return 3
-        case (1, 3): return 3
-        case (2, 0): return 0
-        case (2, 1): return 0
-        case (2, 2): return 2
-        case (2, 3): return 2
+        case (1, 0): return 0
+        case (1, 1): return 0
+        case (1, 2): return 2
+        case (1, 3): return 2
+        case (2, 0): return 1
+        case (2, 1): return 1
+        case (2, 2): return 3
+        case (2, 3): return 3
         case (3, 0): return 1
         case (3, 1): return 1
         case (3, 2): return 3
@@ -518,11 +519,10 @@ extension BLEDevice: CBPeripheralDelegate {
         let status: UInt8 = data[1]
         let leftData = data[2 ... 41]
         let rightData = data[42 ... data.count - 1]
-        let leftValues = leftData.encodedInt16
+        let _ = leftData.encodedInt16
         let rightValues = rightData.encodedInt16
         
         // 1秒ごとにステータスを送信
-        // 脳波デバイスの装着ステータスを更新 [0 : ok, 1 : left-x, 2 : right-x, 3 : both-x]
         if index == 0 {
             switch deviceType {
             case .left:
@@ -543,10 +543,11 @@ extension BLEDevice: CBPeripheralDelegate {
         
         switch deviceType {
         case .left:
-            self.currentLeftEEGSample = leftValues
+            // デモ機の設定上左右のデバイスどちらも右(R)チャンネルを利用
+            self.currentLeftEEGSample = rightValues
         case .right:
             self.currentRightEEGSample = rightValues
-            // 右耳のイヤホンを更新時に両方のデータを送信する
+            // 2台のデバイスを利用すると送信頻度が二倍になるため、右耳接続デバイスのデリゲートで値を更新する。
             if let currentLeftEEGSample = currentLeftEEGSample,
                let currentRightEEGSample = currentRightEEGSample {
                 self.delegate?.bleDeviceDidUpdate(
