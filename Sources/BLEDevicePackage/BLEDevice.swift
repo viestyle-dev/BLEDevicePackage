@@ -495,21 +495,21 @@ extension BLEDevice: CBPeripheralDelegate {
         switch (leftStatus, rightStatus) {
         case (0, 0): return 0
         case (0, 1): return 0
-        case (0, 2): return 2
-        case (0, 3): return 2
+        case (0, 2): return 0
+        case (0, 3): return 0
         case (1, 0): return 0
         case (1, 1): return 0
-        case (1, 2): return 2
-        case (1, 3): return 2
-        case (2, 0): return 1
-        case (2, 1): return 1
-        case (2, 2): return 3
-        case (2, 3): return 3
-        case (3, 0): return 1
-        case (3, 1): return 1
-        case (3, 2): return 3
-        case (3, 3): return 3
-        default: return 3
+        case (1, 2): return 0
+        case (1, 3): return 0
+        case (2, 0): return 0
+        case (2, 1): return 0
+        case (2, 2): return 0
+        case (2, 3): return 0
+        case (3, 0): return 0
+        case (3, 1): return 0
+        case (3, 2): return 0
+        case (3, 3): return 0
+        default: return 0
         }
     }
     
