@@ -109,15 +109,33 @@ public final class BLEDevice: NSObject {
     ]
 
     // PacketIndexes
-    private struct PacketInfo {
-        static private let eegSinglePacketByteSize: Int = 160
-        struct byteRegion {
-            static let index = 0
-            static let status = 1
-            static let leftData = (2)...(2 + eegSinglePacketByteSize - 1)
-            static let rightData = (2 + eegSinglePacketByteSize)...(2 + eegSinglePacketByteSize*2 - 1)
+
+    private struct PacketByteRegion {
+        let index: Int
+        let status: Int
+        let leftData : CountableClosedRange<Int>
+        let rightData: CountableClosedRange<Int>
+        let packetSize: Int
+        
+        init (packetByteSize: Int = 82) {
+            let packetByteSizeElseIndexAndStatus = (packetByteSize - 2)
+            let eegSinglePacketByteSize = (packetByteSizeElseIndexAndStatus / 2)
+            self.init(eegSinglePacketByteSize: eegSinglePacketByteSize)
         }
-    } 
+        
+        init (eegSamplesPerChPerPacket: Int = 20, eegSampleByteSize: Int = 2) {
+            self.init (eegSinglePacketByteSize: eegSamplesPerChPerPacket * eegSampleByteSize)
+        }
+
+        init (eegSinglePacketByteSize: Int = 40) {
+            index = 0
+            status = 1
+            leftData = (2)...(2 + eegSinglePacketByteSize - 1)
+            rightData = (2 + eegSinglePacketByteSize)...(2 + eegSinglePacketByteSize * 2 - 1)
+            packetSize = 2 + eegSinglePacketByteSize * 2
+        }
+    }
+    private var packetByteRegion = PacketByteRegion(eegSamplesPerChPerPacket: 20, eegSampleByteSize: 2)
 
     /// CBCentralManagerのイベントがディスパッチされるシリアルキュー
     let centralManagerDispatchQueue: DispatchQueue
@@ -405,10 +423,10 @@ extension BLEDevice: CBPeripheralDelegate {
 
     /// 脳波データを送信
     private func handleEEGSignal(data: Data) {
-        let index: UInt8 = data[PacketInfo.byteRegion.index]
-        let status: UInt8 = data[PacketInfo.byteRegion.status]
-        let leftData = data[PacketInfo.byteRegion.leftData]
-        let rightData = data[PacketInfo.byteRegion.rightData]
+        let index: UInt8 = data[packetByteRegion.index]
+        let status: UInt8 = data[packetByteRegion.status]
+        let leftData = data[packetByteRegion.leftData]
+        let rightData = data[packetByteRegion.rightData]
         let leftValues = leftData.encodedInt16
         let rightValues = rightData.encodedInt16
 
