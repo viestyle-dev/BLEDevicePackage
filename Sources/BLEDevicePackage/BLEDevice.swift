@@ -110,7 +110,7 @@ public final class BLEDevice: NSObject {
 
     // PacketIndexes
     private struct PacketInfo {
-        static private let eegSinglePacketByteSize: Int = 40
+        static private let eegSinglePacketByteSize: Int = 160
         struct byteRegion {
             static let index = 0
             static let status = 1
