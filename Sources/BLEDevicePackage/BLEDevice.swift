@@ -108,6 +108,17 @@ public final class BLEDevice: NSObject {
         0x00, 0x00, 0x00, 0x00, 0xFE
     ]
 
+    // PacketIndexes
+    private struct PacketInfo {
+        static private let eegSinglePacketByteSize: Int = 40
+        struct byteRegion {
+            static let index = 0
+            static let status = 1
+            static let leftData = (2)...(2 + eegSinglePacketByteSize - 1)
+            static let rightData = (2 + eegSinglePacketByteSize)...(2 + eegSinglePacketByteSize*2 - 1)
+        }
+    } 
+
     /// CBCentralManagerのイベントがディスパッチされるシリアルキュー
     let centralManagerDispatchQueue: DispatchQueue
     /// BLEDeviceのイベント(CBCentralManagerのデリゲートとCBPeripheralのデリゲートをハンドリングして実行される)がディスパッチされるシリアルキュー
@@ -394,10 +405,10 @@ extension BLEDevice: CBPeripheralDelegate {
 
     /// 脳波データを送信
     private func handleEEGSignal(data: Data) {
-        let index: UInt8 = data[0]
-        let status: UInt8 = data[1]
-        let leftData = data[2 ... 41]
-        let rightData = data[42 ... data.count - 1]
+        let index: UInt8 = data[PacketInfo.byteRegion.index]
+        let status: UInt8 = data[PacketInfo.byteRegion.status]
+        let leftData = data[PacketInfo.byteRegion.leftData]
+        let rightData = data[PacketInfo.byteRegion.rightData]
         let leftValues = leftData.encodedInt16
         let rightValues = rightData.encodedInt16
 
